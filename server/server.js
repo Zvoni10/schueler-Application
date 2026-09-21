@@ -20,7 +20,8 @@ db.exec(`
     username TEXT PRIMARY KEY,
     salt TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user'
   );
   CREATE TABLE IF NOT EXISTS profiles (
     username TEXT PRIMARY KEY REFERENCES users(username) ON DELETE CASCADE,
@@ -38,10 +39,35 @@ db.exec(`
     expires_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(username);
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipient TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+    sender TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient);
 `);
 
+// Migration für bereits vorhandene Datenbanken aus älteren Schulio-Versionen.
+const userColumns = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+if (!userColumns.includes("role")) db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
+
 function emptyData() {
-  return { subjects: [], grades: [], events: [], tasks: [], notes: [], schedule: [], flashcards: [] };
+  return { subjects: [], grades: [], events: [], tasks: [], notes: [], schedule: [], scheduleBooks: [], flashcards: [], settings: { language: "de", appearance: "dark", compactMode: false, reducedMotion: false, startPage: "dashboard" } };
+}
+
+function normalizeSettings(settings) {
+  const s = settings && typeof settings === "object" ? settings : {};
+  return {
+    language: s.language === "en" ? "en" : "de",
+    appearance: ["dark", "light", "system"].includes(s.appearance) ? s.appearance : "dark",
+    compactMode: !!s.compactMode,
+    reducedMotion: !!s.reducedMotion,
+    startPage: ["dashboard", "grades", "calendar", "tasks", "notes", "study", "schedule", "mailbox", "settings", "profile"].includes(s.startPage) ? s.startPage : "dashboard",
+  };
 }
 
 function normalizeUsername(username) {
@@ -54,6 +80,25 @@ function randomHex(bytes = 16) {
 
 function hashPassword(password, salt) {
   return crypto.scryptSync(String(password), salt, 64).toString("hex");
+}
+
+// Standard-Administratorkonto für die Organisation. Das Konto wird nur angelegt,
+// wenn es noch nicht existiert. Login ist case-insensitive.
+const ADMIN_USERNAME = "organisator";
+const ADMIN_PASSWORD = process.env.SCHULIO_ADMIN_PASSWORD || "SchulioAdmin2026!";
+const adminExists = db.prepare("SELECT username FROM users WHERE username = ?").get(ADMIN_USERNAME);
+if (!adminExists) {
+  const salt = randomHex();
+  const passwordHash = hashPassword(ADMIN_PASSWORD, salt);
+  const now = new Date().toISOString();
+  const tx = db.transaction(() => {
+    db.prepare("INSERT INTO users (username, salt, password_hash, created_at, role) VALUES (?, ?, ?, ?, 'admin')").run(ADMIN_USERNAME, salt, passwordHash, now);
+    db.prepare("INSERT INTO profiles (username, name, avatar) VALUES (?, ?, ?)").run(ADMIN_USERNAME, "Organisator", "");
+    db.prepare("INSERT INTO app_data (username, data) VALUES (?, ?)").run(ADMIN_USERNAME, JSON.stringify(emptyData()));
+  });
+  tx();
+} else {
+  db.prepare("UPDATE users SET role = 'admin' WHERE username = ?").run(ADMIN_USERNAME);
 }
 
 // ---------- Sessions (in der Datenbank, überleben Server-Neustarts) -------
@@ -121,14 +166,14 @@ app.post("/api/register", (req, res) => {
   const now = new Date().toISOString();
 
   const tx = db.transaction(() => {
-    db.prepare("INSERT INTO users (username, salt, password_hash, created_at) VALUES (?, ?, ?, ?)").run(u, salt, passwordHash, now);
+    db.prepare("INSERT INTO users (username, salt, password_hash, created_at, role) VALUES (?, ?, ?, ?, 'user')").run(u, salt, passwordHash, now);
     db.prepare("INSERT INTO profiles (username, name, avatar) VALUES (?, ?, ?)").run(u, (name || u).trim(), "");
     db.prepare("INSERT INTO app_data (username, data) VALUES (?, ?)").run(u, JSON.stringify(emptyData()));
   });
   tx();
 
   const token = createSession(u, remember === true);
-  res.json({ token, username: u });
+  res.json({ token, username: u, role: "user" });
 });
 
 app.post("/api/login", (req, res) => {
@@ -140,7 +185,8 @@ app.post("/api/login", (req, res) => {
   if (hash !== record.password_hash) return res.status(401).json({ error: "Benutzername oder Passwort ist falsch." });
 
   const token = createSession(u, remember === true);
-  res.json({ token, username: u });
+  const role = record.role || "user";
+  res.json({ token, username: u, role });
 });
 
 app.post("/api/logout", auth, (req, res) => {
@@ -150,7 +196,8 @@ app.post("/api/logout", auth, (req, res) => {
 
 app.get("/api/me", auth, (req, res) => {
   const p = db.prepare("SELECT name, avatar FROM profiles WHERE username = ?").get(req.username);
-  res.json({ username: req.username, name: p?.name || req.username, avatar: p?.avatar || "" });
+  const u = db.prepare("SELECT role FROM users WHERE username = ?").get(req.username);
+  res.json({ username: req.username, name: p?.name || req.username, avatar: p?.avatar || "", role: u?.role || "user" });
 });
 
 app.get("/api/profile", auth, (req, res) => {
@@ -172,6 +219,42 @@ app.get("/api/data", auth, (req, res) => {
 app.put("/api/data", auth, (req, res) => {
   db.prepare("UPDATE app_data SET data = ? WHERE username = ?").run(JSON.stringify(req.body || emptyData()), req.username);
   res.json({ ok: true });
+});
+
+function requireAdmin(req, res, next) {
+  const row = db.prepare("SELECT role FROM users WHERE username = ?").get(req.username);
+  if (!row || row.role !== "admin") return res.status(403).json({ error: "Keine Administratorrechte." });
+  next();
+}
+
+app.get("/api/mailbox", auth, (req, res) => {
+  const rows = db.prepare("SELECT id, sender, subject, body, created_at AS createdAt, read_at AS readAt FROM messages WHERE recipient = ? ORDER BY id DESC").all(req.username);
+  res.json(rows);
+});
+
+app.post("/api/mailbox/:id/read", auth, (req, res) => {
+  db.prepare("UPDATE messages SET read_at = ? WHERE id = ? AND recipient = ?").run(new Date().toISOString(), Number(req.params.id), req.username);
+  res.json({ ok: true });
+});
+
+app.get("/api/admin/users", auth, requireAdmin, (req, res) => {
+  const users = db.prepare(`SELECT u.username, u.role, u.created_at AS createdAt, p.name,
+    (SELECT COUNT(*) FROM messages m WHERE m.recipient = u.username AND m.read_at IS NULL) AS unread
+    FROM users u LEFT JOIN profiles p ON p.username = u.username ORDER BY u.created_at DESC`).all();
+  res.json(users);
+});
+
+app.post("/api/admin/broadcast", auth, requireAdmin, (req, res) => {
+  const { subject, body } = req.body || {};
+  const cleanSubject = String(subject || "").trim();
+  const cleanBody = String(body || "").trim();
+  if (!cleanSubject || !cleanBody) return res.status(400).json({ error: "Betreff und Nachricht sind erforderlich." });
+  const users = db.prepare("SELECT username FROM users WHERE username != ?").all(req.username);
+  const now = new Date().toISOString();
+  const insert = db.prepare("INSERT INTO messages (recipient, sender, subject, body, created_at) VALUES (?, ?, ?, ?, ?)");
+  const tx = db.transaction(() => { for (const u of users) insert.run(u.username, "Organisator", cleanSubject, cleanBody, now); });
+  tx();
+  res.json({ ok: true, recipients: users.length });
 });
 
 app.post("/api/change-password", auth, (req, res) => {

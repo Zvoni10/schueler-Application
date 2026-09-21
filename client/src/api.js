@@ -86,21 +86,21 @@ async function apiFetch(path, options = {}) {
 }
 
 export async function registerUser(username, password, name, remember = false) {
-  const { token, username: u } = await apiFetch("/api/register", {
+  const { token, username: u, role } = await apiFetch("/api/register", {
     method: "POST",
     body: JSON.stringify({ username, password, name, remember }),
   });
   setToken(token);
-  return { token, username: u };
+  return { token, username: u, role: role || "user" };
 }
 
 export async function loginUser(username, password, remember = false) {
-  const { token, username: u } = await apiFetch("/api/login", {
+  const { token, username: u, role } = await apiFetch("/api/login", {
     method: "POST",
     body: JSON.stringify({ username, password, remember }),
   });
   setToken(token);
-  return { token, username: u };
+  return { token, username: u, role: role || "user" };
 }
 
 export async function logoutUser() {
@@ -136,3 +136,9 @@ export function changePassword(currentPassword, newPassword) {
     body: JSON.stringify({ currentPassword, newPassword }),
   });
 }
+
+
+export function fetchMailbox() { return apiFetch("/api/mailbox"); }
+export function markMailboxRead(id) { return apiFetch(`/api/mailbox/${id}/read`, { method: "POST" }); }
+export function fetchAdminUsers() { return apiFetch("/api/admin/users"); }
+export function sendAdminBroadcast(subject, body) { return apiFetch("/api/admin/broadcast", { method: "POST", body: JSON.stringify({ subject, body }) }); }

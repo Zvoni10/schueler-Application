@@ -23,3 +23,15 @@ Für die Entwicklung:
 ```bash
 npm run dev
 ```
+
+## Schulio Administration
+
+Auf einer neuen Installation wird automatisch ein Administratorkonto angelegt:
+
+- Benutzername: `Organisator` (Login ist nicht case-sensitive)
+- Standardpasswort: `SchulioAdmin2026!`
+- Rolle: `admin`
+
+Für einen produktiven Server kann das Passwort über die Umgebungsvariable `SCHULIO_ADMIN_PASSWORD` gesetzt werden. Das Administratorkonto kann in Schulio unter **Administration** alle erstellten Accounts sehen und Mitteilungen an alle anderen Konten in deren **MailBox** senden.
+
+Persönliche Einstellungen wie Sprache, Darstellung, kompakte Ansicht, reduzierte Animationen und Startseite werden pro Benutzer in der Datenbank gespeichert.

@@ -5,13 +5,14 @@ import {
   Clock, Plus, X, Trash2, Pencil, Star, Moon, Sun, ChevronLeft,
   ChevronRight, Bell, BookOpenCheck, TrendingUp, TrendingDown,
   Search, CheckCircle2, Circle, Sparkles, UserCircle, Menu, GripVertical, Camera, KeyRound, Save, LogOut, UserPlus, Lock,
-  Timer, Target, Zap, Brain, BookOpen, Flame, ArrowRight, CheckSquare2, RotateCcw
+  Timer, Target, Zap, Brain, BookOpen, Flame, ArrowRight, CheckSquare2, RotateCcw, Mail, Settings as SettingsIcon, ShieldCheck, Users, Send, Languages, Palette, Monitor, BellRing
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   registerUser, loginUser, logoutUser, fetchMe, fetchProfile, saveProfile,
   fetchData, saveData, changePassword as apiChangePassword,
   getStoredSession, persistSession, clearSession, setToken, setUnauthorizedHandler,
+  fetchMailbox, markMailboxRead, fetchAdminUsers, sendAdminBroadcast,
 } from "./api.js";
 
 const SUBJECT_COLORS = ["#3A5BFF", "#FF6B4A", "#1FAE6E", "#A855F7", "#F5A623", "#EC4899", "#14B8A6", "#6366F1"];
@@ -83,7 +84,7 @@ function Avg(nums) { if (!nums.length) return null; return nums.reduce((a,b)=>a+
 
 export default function App() {
   const [dark, setDark] = useState(false);
-  const [session, setSession] = useState(null); // { username }
+  const [session, setSession] = useState(null); // { username, role }
   const [checkingSession, setCheckingSession] = useState(true);
 
   // Beim Start prüfen, ob noch ein gespeicherter Login existiert, damit man
@@ -95,20 +96,20 @@ export default function App() {
     if (!stored) { setCheckingSession(false); return; }
     setToken(stored.token);
     fetchMe()
-      .then((me) => setSession({ username: me.username }))
+      .then((me) => setSession({ username: me.username, role: me.role || "user" }))
       .catch((err) => {
         if (err.status === 401) return; // bereits vom Handler oben behandelt
         // Netzwerk-/Serverproblem (z. B. Server wacht gerade erst auf):
         // angemeldet bleiben statt den Login zu löschen.
-        if (stored.username) setSession({ username: stored.username });
+        if (stored.username) setSession({ username: stored.username, role: stored.username.toLowerCase() === "organisator" ? "admin" : "user" });
         else { clearSession(); setToken(null); }
       })
       .finally(() => setCheckingSession(false));
   }, []);
 
-  const handleLogin = (username, token, remember) => {
+  const handleLogin = (username, token, remember, role = "user") => {
     persistSession({ token, username, remember });
-    setSession({ username });
+    setSession({ username, role });
   };
 
   const handleLogout = async () => {
@@ -138,6 +139,9 @@ export default function App() {
     .sidebar-title { display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; letter-spacing:-.4px; }
     .sidebar-close { display:none; }
     .sidebar-nav, .sidebar-foot { display:flex; flex-direction:column; align-items:stretch; gap:3px; width:100%; }
+    .navbadge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--primary);color:white;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800}
+    .compact-mode .card{padding:12px}.compact-mode .content{padding-top:14px}.compact-mode .rowline{padding:7px 0}
+    .reduced-motion *, .reduced-motion *::before, .reduced-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
     .sidebar-foot { margin-top:auto; padding-top:10px; border-top:1px solid var(--border); }
     .navgroup-title { padding:10px 12px 5px; font-size:10px; font-weight:800; letter-spacing:.08em; color:var(--text-muted); text-transform:uppercase; }
     .navitem { width:100%; min-height:42px; padding:0 12px; border-radius:11px; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:11px; color:var(--text-muted); cursor:pointer; border:none; background:transparent; transition:.15s; font-family:inherit; -webkit-tap-highlight-color:transparent; text-align:left; }
@@ -219,6 +223,11 @@ export default function App() {
       .profile-grid{grid-template-columns:1fr}
       .profile-avatar{margin:auto}
       .grade-entry{grid-template-columns:1fr 1fr!important}
+      .subject-header{align-items:flex-start!important;gap:8px!important}
+      .subject-header > div:first-child{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap!important;align-items:center!important;row-gap:5px!important}
+      .subject-header > div:first-child b{flex:0 0 auto;max-width:calc(100vw - 130px);overflow:visible!important;text-overflow:clip!important;white-space:normal!important;word-break:break-word;font-size:14px!important}
+      .subject-header > div:first-child > span:last-child{flex:0 0 100%;white-space:normal!important;line-height:1.25}
+      .subject-header > div:last-child{flex-shrink:0!important}
       .grade-entry .btn{grid-column:1/-1}
       .cal-grid{grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:3px!important}
       .cal-cell{min-height:58px!important;padding:3px!important;border-radius:8px!important}
@@ -246,7 +255,7 @@ export default function App() {
       ) : !session ? (
         <AuthScreen dark={dark} setDark={setDark} onLogin={handleLogin} />
       ) : (
-        <MainApp username={session.username} dark={dark} setDark={setDark} onLogout={handleLogout} />
+        <MainApp username={session.username} role={session.role || "user"} dark={dark} setDark={setDark} onLogout={handleLogout} />
       )}
     </div>
   );
@@ -272,11 +281,11 @@ function AuthScreen({ dark, setDark, onLogin }) {
     try {
       if (mode === "register") {
         if (password !== confirmPassword) throw new Error("Die Passwörter stimmen nicht überein.");
-        const { token, username: u } = await registerUser(username, password, name, remember);
-        onLogin(u, token, remember);
+        const { token, username: u, role } = await registerUser(username, password, name, remember);
+        onLogin(u, token, remember, role);
       } else {
-        const { token, username: u } = await loginUser(username, password, remember);
-        onLogin(u, token, remember);
+        const { token, username: u, role } = await loginUser(username, password, remember);
+        onLogin(u, token, remember, role);
       }
     } catch (err) {
       setError(err.message || "Etwas ist schiefgelaufen. Bitte versuch es erneut.");
@@ -351,7 +360,9 @@ function AuthScreen({ dark, setDark, onLogin }) {
   );
 }
 
-function MainApp({ username, dark, setDark, onLogout }) {
+const DEFAULT_SETTINGS = { language: "de", appearance: "dark", compactMode: false, reducedMotion: false, startPage: "dashboard" };
+
+function MainApp({ username, role, dark, setDark, onLogout }) {
   const [tab, setTab] = useState("dashboard");
   const [mobileNav, setMobileNav] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -359,6 +370,7 @@ function MainApp({ username, dark, setDark, onLogout }) {
   const [profile, setProfileRaw] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [mailbox, setMailbox] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -369,11 +381,18 @@ function MainApp({ username, dark, setDark, onLogout }) {
         const [d, p] = await Promise.all([fetchData(), fetchProfile()]);
         if (cancelled) return;
         const migrated = { ...d };
+        migrated.settings = { ...DEFAULT_SETTINGS, ...(d.settings || {}) };
         if (!Array.isArray(migrated.scheduleBooks) || migrated.scheduleBooks.length === 0) {
           migrated.scheduleBooks = [{ id: "schedule-main", name: "Mein Stundenplan", icon: "📚", color: "#147BEF", schedule: Array.isArray(migrated.schedule) ? migrated.schedule : [] }];
         }
         setDataRaw(migrated);
         setProfileRaw(p);
+        const appearance = migrated.settings.appearance;
+        if (appearance === "dark") setDark(true);
+        else if (appearance === "light") setDark(false);
+        else if (appearance === "system") setDark(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        setTab(migrated.settings.startPage || "dashboard");
+        fetchMailbox().then(setMailbox).catch(() => {});
       } catch (err) {
         // Wichtig: NICHT mit leeren Daten weitermachen, sonst würden die
         // echten Daten beim nächsten Speichern überschrieben.
@@ -414,6 +433,8 @@ function MainApp({ username, dark, setDark, onLogout }) {
 
   const set = (key) => (fn) => setDataRaw((d) => d ? ({ ...d, [key]: typeof fn === "function" ? fn(d[key] ?? []) : fn }) : d);
   const setSubjects = set("subjects"), setGrades = set("grades"), setEvents = set("events"), setTasks = set("tasks"), setNotes = set("notes"), setFlashcards = set("flashcards");
+  const settings = { ...DEFAULT_SETTINGS, ...(data?.settings || {}) };
+  const setSettings = (fn) => setDataRaw((d) => d ? ({ ...d, settings: typeof fn === "function" ? fn({ ...DEFAULT_SETTINGS, ...(d.settings || {}) }) : fn }) : d);
   const setScheduleBooks = (fn) => setDataRaw((d) => {
     if (!d) return d;
     const current = d.scheduleBooks || scheduleBooks;
@@ -447,6 +468,7 @@ function MainApp({ username, dark, setDark, onLogout }) {
   const todaysLessons = useMemo(() => schedule.filter(s => s.day === todayDow).sort((a,b)=>a.start.localeCompare(b.start)), [schedule, todayDow]);
   const tasksToday = tasks.filter(t => t.due === todayISO() && t.status !== "erledigt");
   const openTasks = tasks.filter(t => t.status !== "erledigt").sort((a,b)=>a.due.localeCompare(b.due));
+  const unreadMail = mailbox.filter(m => !m.readAt).length;
 
   if (loadError) {
     return (
@@ -471,8 +493,8 @@ function MainApp({ username, dark, setDark, onLogout }) {
   }
 
   return (
-    <div className="sapp" data-theme={dark ? "dark" : "light"}>
-      <Sidebar tab={tab} setTab={setTab} dark={dark} setDark={setDark} mobileNav={mobileNav} setMobileNav={setMobileNav} />
+    <div className={`sapp${settings.compactMode ? " compact-mode" : ""}${settings.reducedMotion ? " reduced-motion" : ""}`} data-theme={dark ? "dark" : "light"}>
+      <Sidebar tab={tab} setTab={setTab} dark={dark} setDark={setDark} mobileNav={mobileNav} setMobileNav={setMobileNav} isAdmin={role === "admin"} unreadMail={unreadMail} />
       <div className="main">
         <Topbar tab={tab} profile={profile} setTab={setTab} username={username} onLogout={onLogout} />
         <div className="content">
@@ -498,6 +520,15 @@ function MainApp({ username, dark, setDark, onLogout }) {
           {tab === "study" && (
             <StudyHub flashcards={flashcards} setFlashcards={setFlashcards} subjects={subjects} subjectById={subjectById} />
           )}
+          {tab === "mailbox" && (
+            <Mailbox messages={mailbox} setMessages={setMailbox} />
+          )}
+          {tab === "settings" && (
+            <SettingsPage settings={settings} setSettings={setSettings} dark={dark} setDark={setDark} />
+          )}
+          {tab === "admin" && role === "admin" && (
+            <AdminPanel />
+          )}
           {tab === "profile" && (
             <Profile profile={profile} setProfile={setProfile} username={username} onLogout={onLogout} />
           )}
@@ -507,7 +538,7 @@ function MainApp({ username, dark, setDark, onLogout }) {
   );
 }
 
-function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
+function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav, isAdmin, unreadMail }) {
   const groups = [
     { title: "Übersicht", items: [{ id: "dashboard", icon: LayoutGrid, label: "Start" }] },
     { title: "Schule", items: [
@@ -519,6 +550,14 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
     { title: "Lernen", items: [
       { id: "notes", icon: StickyNote, label: "Notizen" },
       { id: "study", icon: Timer, label: "Lerncenter" },
+    ] },
+    { title: "Kommunikation", items: [
+      { id: "mailbox", icon: Mail, label: "MailBox", badge: unreadMail },
+    ] },
+    { title: "Konto", items: [
+      { id: "settings", icon: SettingsIcon, label: "Einstellungen" },
+      { id: "profile", icon: UserCircle, label: "Profil" },
+      ...(isAdmin ? [{ id: "admin", icon: ShieldCheck, label: "Administration" }] : []),
     ] },
   ];
   const navigate = (id) => { setTab(id); setMobileNav(false); };
@@ -548,14 +587,13 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
               <div className="navgroup-title">{group.title}</div>
               {group.items.map((it) => (
                 <button key={it.id} className={"navitem" + (tab === it.id ? " active" : "")} onClick={() => navigate(it.id)} title={it.label}>
-                  <it.icon size={19}/><span className="navlabel">{it.label}</span>
+                  <it.icon size={19}/><span className="navlabel">{it.label}</span>{it.badge > 0 && <span className="navbadge">{it.badge > 9 ? "9+" : it.badge}</span>}
                 </button>
               ))}
             </div>
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button className={"navitem" + (tab === "profile" ? " active" : "")} onClick={() => navigate("profile")} title="Profil"><UserCircle size={19}/><span className="navlabel">Profil</span></button>
           <button className="navitem" onClick={() => setDark((d) => !d)} title="Theme wechseln">{dark ? <Sun size={19}/> : <Moon size={19}/>}<span className="navlabel">{dark ? "Helles Design" : "Dunkles Design"}</span></button>
         </div>
       </aside>
@@ -564,7 +602,7 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
 }
 
 function Topbar({ tab, profile, setTab, username, onLogout }) {
-  const titles = { dashboard:"Dein Überblick", grades:"Noten", calendar:"Termine & Kalender", tasks:"Aufgaben", notes:"Notizen", study:"Lerncenter", schedule:"Stundenplan", profile:"Mein Profil" };
+  const titles = { dashboard:"Dein Überblick", grades:"Noten", calendar:"Termine & Kalender", tasks:"Aufgaben", notes:"Notizen", study:"Lerncenter", schedule:"Stundenpläne", mailbox:"MailBox", settings:"Einstellungen", admin:"Administration", profile:"Mein Profil" };
   const now = new Date();
   const weekday = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"][now.getDay()];
   const initials = (profile.name || "S").trim().slice(0,1).toUpperCase();
@@ -1021,6 +1059,76 @@ function Profile({ profile, setProfile, username, onLogout }) {
       </div>
     </div>
   );
+}
+
+
+function Mailbox({ messages, setMessages }) {
+  const [selected, setSelected] = useState(null);
+  const open = async (msg) => {
+    setSelected(msg);
+    if (!msg.readAt) {
+      setMessages((list) => list.map((m) => m.id === msg.id ? { ...m, readAt: new Date().toISOString() } : m));
+      try { await markMailboxRead(msg.id); } catch {}
+    }
+  };
+  return <div>
+    <div className="card" style={{marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
+      <div className="stat-icon"><Mail size={18}/></div>
+      <div><h3 style={{margin:0}}>Deine MailBox</h3><div style={{fontSize:12,color:"var(--text-muted)",marginTop:3}}>Mitteilungen von Schulio und der Organisation.</div></div>
+    </div>
+    {messages.length === 0 ? <div className="empty-state">Du hast noch keine Nachrichten.</div> : <div style={{display:"grid",gap:8}}>
+      {messages.map((m) => <button key={m.id} onClick={() => open(m)} className="card" style={{textAlign:"left",border:"1px solid var(--border)",cursor:"pointer",display:"grid",gridTemplateColumns:"40px 1fr auto",gap:12,alignItems:"center"}}>
+        <div className="stat-icon"><Mail size={16}/></div>
+        <div style={{minWidth:0}}><div style={{fontWeight:m.readAt?600:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject}</div><div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>{m.sender} · {new Date(m.createdAt).toLocaleDateString("de-DE")}</div></div>
+        {!m.readAt && <span className="pill" style={{background:"var(--primary-soft)",color:"var(--primary)"}}>Neu</span>}
+      </button>)}
+    </div>}
+    {selected && <Modal onClose={() => setSelected(null)} title={selected.subject}><div style={{fontSize:12,color:"var(--text-muted)",marginBottom:14}}>Von {selected.sender} · {new Date(selected.createdAt).toLocaleString("de-DE")}</div><div style={{whiteSpace:"pre-wrap",lineHeight:1.65,fontSize:14}}>{selected.body}</div></Modal>}
+  </div>;
+}
+
+function SettingsPage({ settings, setSettings, dark, setDark }) {
+  const update = (key, value) => {
+    setSettings((s) => ({ ...s, [key]: value }));
+    if (key === "appearance") {
+      if (value === "dark") setDark(true);
+      else if (value === "light") setDark(false);
+      else setDark(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    }
+  };
+  return <div>
+    <div className="profile-section" style={{marginBottom:16}}>
+      <h3 style={{margin:"0 0 4px",display:"flex",alignItems:"center",gap:8}}><SettingsIcon size={18}/> Allgemeine Einstellungen</h3>
+      <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:18}}>Deine Einstellungen werden automatisch in deinem Schulio-Konto gespeichert.</div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Languages size={18}/><div><b>Sprache</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Bevorzugte Sprache für Schulio</div></div></div><select value={settings.language} onChange={e=>update("language",e.target.value)} style={{width:150}}><option value="de">Deutsch</option><option value="en">English</option></select></div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Palette size={18}/><div><b>Darstellung</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Hell, dunkel oder automatisch</div></div></div><select value={settings.appearance} onChange={e=>update("appearance",e.target.value)} style={{width:150}}><option value="dark">Dunkel</option><option value="light">Hell</option><option value="system">System</option></select></div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Monitor size={18}/><div><b>Kompakte Ansicht</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Weniger Abstand für mehr Inhalt</div></div></div><input type="checkbox" checked={settings.compactMode} onChange={e=>update("compactMode",e.target.checked)} style={{width:20,accentColor:"var(--primary)"}}/></div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Zap size={18}/><div><b>Animationen reduzieren</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Für eine ruhigere Bedienung</div></div></div><input type="checkbox" checked={settings.reducedMotion} onChange={e=>update("reducedMotion",e.target.checked)} style={{width:20,accentColor:"var(--primary)"}}/></div>
+      <div className="rowline"><div><b>Startseite</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Diese Seite wird nach dem Login geöffnet.</div></div><select value={settings.startPage} onChange={e=>update("startPage",e.target.value)} style={{width:180}}><option value="dashboard">Start</option><option value="grades">Noten</option><option value="calendar">Termine</option><option value="tasks">Aufgaben</option><option value="schedule">Stundenpläne</option><option value="mailbox">MailBox</option><option value="profile">Profil</option></select></div>
+    </div>
+    <div className="profile-section"><h3 style={{margin:"0 0 4px"}}>Gespeichert</h3><div style={{fontSize:12,color:"var(--text-muted)"}}>Sprache, Darstellung und persönliche Anzeigeoptionen werden zusammen mit deinen Schulio-Daten auf deinem Konto gespeichert.</div></div>
+  </div>;
+}
+
+function AdminPanel() {
+  const [users, setUsers] = useState([]);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(true);
+  const load = () => { setLoading(true); fetchAdminUsers().then(setUsers).catch(e=>setStatus(e.message)).finally(()=>setLoading(false)); };
+  useEffect(load, []);
+  const send = async () => {
+    if (!subject.trim() || !body.trim()) return setStatus("Bitte Betreff und Nachricht ausfüllen.");
+    try { const r = await sendAdminBroadcast(subject, body); setStatus(`Nachricht an ${r.recipients} Konto${r.recipients === 1 ? "" : "en"} gesendet.`); setSubject(""); setBody(""); load(); } catch(e) { setStatus(e.message || "Senden fehlgeschlagen."); }
+  };
+  return <div>
+    <div className="hero-card card" style={{marginBottom:16}}><div style={{position:"relative",zIndex:1}}><div style={{fontSize:11,fontWeight:800,letterSpacing:1,textTransform:"uppercase",opacity:.8}}>Schulio Administration</div><h2 style={{margin:"7px 0 4px"}}>Organisator</h2><div style={{fontSize:13,opacity:.9}}>Konten verwalten und Mitteilungen an alle Schulio-Nutzer senden.</div></div></div>
+    <div className="grid2" style={{marginBottom:16}}>
+      <div className="profile-section"><h3 style={{margin:"0 0 4px",display:"flex",gap:7,alignItems:"center"}}><Users size={17}/> Erstellte Accounts</h3><div style={{fontSize:11,color:"var(--text-muted)",marginBottom:12}}>{users.length} Konto{users.length===1?"":"en"}</div>{loading?<div className="empty-state">Lade…</div>:<div style={{maxHeight:360,overflowY:"auto"}}>{users.map(u=><div className="rowline" key={u.username}><div style={{minWidth:0}}><b style={{display:"block",overflow:"hidden",textOverflow:"ellipsis"}}>{u.name || u.username}</b><div style={{fontSize:11,color:"var(--text-muted)"}}>@{u.username} · {new Date(u.createdAt).toLocaleDateString("de-DE")}</div></div><span className="pill" style={{background:u.role==="admin"?"var(--primary-soft)":"var(--surface-alt)",color:u.role==="admin"?"var(--primary)":"var(--text-muted)"}}>{u.role === "admin" ? "Admin" : "Schüler"}</span></div>)}</div>}</div>
+      <div className="profile-section"><h3 style={{margin:"0 0 4px",display:"flex",gap:7,alignItems:"center"}}><Send size={17}/> Mitteilung an alle</h3><div style={{fontSize:11,color:"var(--text-muted)",marginBottom:12}}>Die Nachricht landet bei allen anderen Accounts in der MailBox.</div><label className="fl">Betreff</label><input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="z. B. Wartungsarbeiten"/><label className="fl" style={{marginTop:10}}>Nachricht</label><textarea rows={7} value={body} onChange={e=>setBody(e.target.value)} placeholder="Deine Mitteilung…"/><button className="btn" style={{marginTop:12}} onClick={send}><Send size={14}/> An alle senden</button>{status&&<div style={{marginTop:10,fontSize:12,color:"var(--primary)"}}>{status}</div>}</div>
+    </div>
+  </div>;
 }
 
 function CalendarView({ events, setEvents, subjects, subjectById }) {
