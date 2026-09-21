@@ -10,53 +10,94 @@
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const TOKEN_KEY = "schueler-app-token";
+const USER_KEY = "schueler-app-user";
 
 let authToken = null;
+let onUnauthorized = null;
 
 export function setToken(token) {
   authToken = token;
 }
 
-export function getStoredToken() {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
+// Wird aufgerufen, wenn der Server einen gespeicherten Login ablehnt (401).
+export function setUnauthorizedHandler(fn) {
+  onUnauthorized = fn;
 }
 
-export function persistToken(token) {
+function stores() {
+  const list = [];
+  try { list.push(window.localStorage); } catch {}
+  try { list.push(window.sessionStorage); } catch {}
+  return list;
+}
+
+// Gespeicherten Login lesen (dauerhaft in localStorage oder nur für die
+// aktuelle Browser-Sitzung in sessionStorage).
+export function getStoredSession() {
+  for (const store of stores()) {
+    try {
+      const token = store.getItem(TOKEN_KEY);
+      if (token) return { token, username: store.getItem(USER_KEY) || "" };
+    } catch {}
+  }
+  return null;
+}
+
+// remember = true  -> "Für immer angemeldet bleiben" (localStorage)
+// remember = false -> nur bis der Browser/Tab geschlossen wird (sessionStorage)
+export function persistSession({ token, username, remember }) {
+  clearSession();
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    const store = remember ? window.localStorage : window.sessionStorage;
+    store.setItem(TOKEN_KEY, token);
+    store.setItem(USER_KEY, username || "");
   } catch {}
+}
+
+export function clearSession() {
+  for (const store of stores()) {
+    try {
+      store.removeItem(TOKEN_KEY);
+      store.removeItem(USER_KEY);
+    } catch {}
+  }
 }
 
 async function apiFetch(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    throw new Error("Keine Verbindung zum Server.");
+  }
   let body = {};
   try {
     body = await res.json();
   } catch {}
-  if (!res.ok) throw new Error(body.error || "Der Server hat einen Fehler gemeldet.");
+  if (!res.ok) {
+    if (res.status === 401 && authToken && onUnauthorized) onUnauthorized();
+    const err = new Error(body.error || "Der Server hat einen Fehler gemeldet.");
+    err.status = res.status;
+    throw err;
+  }
   return body;
 }
 
-export async function registerUser(username, password, name) {
+export async function registerUser(username, password, name, remember = false) {
   const { token, username: u } = await apiFetch("/api/register", {
     method: "POST",
-    body: JSON.stringify({ username, password, name }),
+    body: JSON.stringify({ username, password, name, remember }),
   });
   setToken(token);
   return { token, username: u };
 }
 
-export async function loginUser(username, password) {
+export async function loginUser(username, password, remember = false) {
   const { token, username: u } = await apiFetch("/api/login", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, remember }),
   });
   setToken(token);
   return { token, username: u };

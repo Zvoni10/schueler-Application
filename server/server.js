@@ -31,10 +31,17 @@ db.exec(`
     username TEXT PRIMARY KEY REFERENCES users(username) ON DELETE CASCADE,
     data TEXT
   );
+  CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+    remember INTEGER NOT NULL DEFAULT 0,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(username);
 `);
 
 function emptyData() {
-  return { subjects: [], grades: [], events: [], tasks: [], notes: [], schedule: [] };
+  return { subjects: [], grades: [], events: [], tasks: [], notes: [], schedule: [], flashcards: [] };
 }
 
 function normalizeUsername(username) {
@@ -49,16 +56,46 @@ function hashPassword(password, salt) {
   return crypto.scryptSync(String(password), salt, 64).toString("hex");
 }
 
-// ---------- Sessions (einfache Token im Arbeitsspeicher) -----------------
-const sessions = new Map(); // token -> username
+// ---------- Sessions (in der Datenbank, überleben Server-Neustarts) -------
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+const SESSION_SHORT = 1 * DAY;    // ohne "Für immer angemeldet bleiben"
+const SESSION_LONG = 365 * DAY;   // mit Haken; verlängert sich bei jeder Nutzung
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function createSession(username, remember) {
+  const token = randomHex(32);
+  db.prepare("INSERT INTO sessions (token_hash, username, remember, expires_at) VALUES (?, ?, ?, ?)")
+    .run(hashToken(token), username, remember ? 1 : 0, Date.now() + (remember ? SESSION_LONG : SESSION_SHORT));
+  return token;
+}
+
+function cleanupSessions() {
+  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
+}
+cleanupSessions();
+setInterval(cleanupSessions, HOUR).unref();
 
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-  const username = token ? sessions.get(token) : null;
-  if (!username) return res.status(401).json({ error: "Nicht angemeldet." });
-  req.username = username;
+  const hash = token ? hashToken(token) : null;
+  const row = hash ? db.prepare("SELECT username, remember, expires_at FROM sessions WHERE token_hash = ?").get(hash) : null;
+  if (!row || row.expires_at < Date.now()) {
+    if (row) db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(hash);
+    return res.status(401).json({ error: "Nicht angemeldet." });
+  }
+  // Gleitende Laufzeit: bei Nutzung wird der Login wieder verlängert.
+  const newExpiry = Date.now() + (row.remember ? SESSION_LONG : SESSION_SHORT);
+  if (newExpiry - row.expires_at > HOUR) {
+    db.prepare("UPDATE sessions SET expires_at = ? WHERE token_hash = ?").run(newExpiry, hash);
+  }
+  req.username = row.username;
   req.token = token;
+  req.tokenHash = hash;
   next();
 }
 
@@ -68,7 +105,7 @@ app.use(cors());
 app.use(express.json({ limit: "6mb" })); // Profilbilder sind Data-URIs
 
 app.post("/api/register", (req, res) => {
-  const { username, password, name } = req.body || {};
+  const { username, password, name, remember } = req.body || {};
   const u = normalizeUsername(username);
   if (!/^[a-z0-9_.-]{3,20}$/.test(u)) {
     return res.status(400).json({ error: "Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen, _ . -" });
@@ -90,26 +127,24 @@ app.post("/api/register", (req, res) => {
   });
   tx();
 
-  const token = randomHex(24);
-  sessions.set(token, u);
+  const token = createSession(u, remember === true);
   res.json({ token, username: u });
 });
 
 app.post("/api/login", (req, res) => {
-  const { username, password } = req.body || {};
+  const { username, password, remember } = req.body || {};
   const u = normalizeUsername(username);
   const record = db.prepare("SELECT * FROM users WHERE username = ?").get(u);
   if (!record) return res.status(401).json({ error: "Benutzername oder Passwort ist falsch." });
   const hash = hashPassword(password || "", record.salt);
   if (hash !== record.password_hash) return res.status(401).json({ error: "Benutzername oder Passwort ist falsch." });
 
-  const token = randomHex(24);
-  sessions.set(token, u);
+  const token = createSession(u, remember === true);
   res.json({ token, username: u });
 });
 
 app.post("/api/logout", auth, (req, res) => {
-  sessions.delete(req.token);
+  db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(req.tokenHash);
   res.json({ ok: true });
 });
 
@@ -149,6 +184,8 @@ app.post("/api/change-password", auth, (req, res) => {
   const salt = randomHex();
   const passwordHash = hashPassword(newPassword, salt);
   db.prepare("UPDATE users SET salt = ?, password_hash = ? WHERE username = ?").run(salt, passwordHash, req.username);
+  // Nach einer Passwortänderung alle anderen Geräte abmelden.
+  db.prepare("DELETE FROM sessions WHERE username = ? AND token_hash != ?").run(req.username, req.tokenHash);
   res.json({ ok: true });
 });
 

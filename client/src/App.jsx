@@ -3,13 +3,14 @@ import {
   LayoutGrid, GraduationCap, CalendarDays, ListChecks, StickyNote,
   Clock, Plus, X, Trash2, Pencil, Star, Moon, Sun, ChevronLeft,
   ChevronRight, Bell, BookOpenCheck, TrendingUp, TrendingDown,
-  Search, CheckCircle2, Circle, Sparkles, UserCircle, Menu, GripVertical, Camera, KeyRound, Save, LogOut, UserPlus, Lock
+  Search, CheckCircle2, Circle, Sparkles, UserCircle, Menu, GripVertical, Camera, KeyRound, Save, LogOut, UserPlus, Lock,
+  Timer, Target, Zap, Brain, BookOpen, Flame, ArrowRight, CheckSquare2, RotateCcw
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   registerUser, loginUser, logoutUser, fetchMe, fetchProfile, saveProfile,
   fetchData, saveData, changePassword as apiChangePassword,
-  getStoredToken, persistToken, setToken,
+  getStoredSession, persistSession, clearSession, setToken, setUnauthorizedHandler,
 } from "./api.js";
 
 const SUBJECT_COLORS = ["#3A5BFF", "#FF6B4A", "#1FAE6E", "#A855F7", "#F5A623", "#EC4899", "#14B8A6", "#6366F1"];
@@ -71,7 +72,7 @@ function seedData() {
     { id: uid(), subjectId: "en", teacher: "Hr. Klein", room: "112", day: 2, start: "08:00", end: "08:45" },
     { id: uid(), subjectId: "sport", teacher: "Hr. Fuchs", room: "Halle", day: 2, start: "09:50", end: "11:20" },
   ];
-  return { subjects, grades, events, tasks, notes, schedule };
+  return { subjects, grades, events, tasks, notes, schedule, flashcards: [\n    { id: uid(), question: "Was ist die Mitternachtsformel?", answer: "x = (-b ± √(b² - 4ac)) / (2a)", subjectId: "math" },\n    { id: uid(), question: "Was bedeutet photosynthesis?", answer: "Fotosynthese: Pflanzen wandeln Lichtenergie in chemische Energie um.", subjectId: "" }\n  ] };
 }
 
 function Avg(nums) { if (!nums.length) return null; return nums.reduce((a,b)=>a+b,0)/nums.length; }
@@ -81,26 +82,35 @@ export default function App() {
   const [session, setSession] = useState(null); // { username }
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // Beim Start prüfen, ob noch ein gültiger Token aus einer früheren
-  // Sitzung gespeichert ist, damit man nicht bei jedem Start neu einloggen muss.
+  // Beim Start prüfen, ob noch ein gespeicherter Login existiert, damit man
+  // sich nicht bei jedem Start neu anmelden muss.
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token) { setCheckingSession(false); return; }
-    setToken(token);
+    // Wenn der Server einen Token als ungültig/abgelaufen ablehnt -> abmelden.
+    setUnauthorizedHandler(() => { clearSession(); setToken(null); setSession(null); });
+    const stored = getStoredSession();
+    if (!stored) { setCheckingSession(false); return; }
+    setToken(stored.token);
     fetchMe()
       .then((me) => setSession({ username: me.username }))
-      .catch(() => persistToken(null))
+      .catch((err) => {
+        if (err.status === 401) return; // bereits vom Handler oben behandelt
+        // Netzwerk-/Serverproblem (z. B. Server wacht gerade erst auf):
+        // angemeldet bleiben statt den Login zu löschen.
+        if (stored.username) setSession({ username: stored.username });
+        else { clearSession(); setToken(null); }
+      })
       .finally(() => setCheckingSession(false));
   }, []);
 
-  const handleLogin = (username, token) => {
-    persistToken(token);
+  const handleLogin = (username, token, remember) => {
+    persistSession({ token, username, remember });
     setSession({ username });
   };
 
   const handleLogout = async () => {
     await logoutUser();
-    persistToken(null);
+    clearSession();
+    setToken(null);
     setSession(null);
   };
 
@@ -118,7 +128,15 @@ export default function App() {
       --primary:#6E85FF; --primary-soft:#242A4A; --accent:#FF8266; --success:#35D28A; --warning:#F7B84B; --danger:#F26A6E;
     }
     .sidebar { width: 76px; background: var(--surface); border-right: 1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding: 18px 0; gap:6px; flex-shrink:0; }
-    .sidebar .logo { width:36px; height:36px; border-radius:10px; background:var(--primary); display:flex; align-items:center; justify-content:center; color:white; margin-bottom:14px; font-weight:700; font-family:'Space Grotesk'; }
+    .sidebar .logo { width:36px; height:36px; border-radius:10px; background:var(--primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-family:'Space Grotesk'; flex-shrink:0; }
+    .sidebar-head { display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+    .sidebar-title, .sidebar-close { display:none; }
+    .sidebar-nav, .sidebar-foot { display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; }
+    .sidebar-foot { margin-top:auto; }
+    .navitem { width:60px; padding:8px 0 6px; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:var(--text-muted); cursor:pointer; border:none; background:transparent; transition:.15s; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+    .navitem:hover { background:var(--surface-alt); color:var(--text); }
+    .navitem.active { background:var(--primary-soft); color:var(--primary); }
+    .navitem .navlabel { font-size:10px; font-weight:600; line-height:1.1; }
     .navbtn { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); cursor:pointer; border:none; background:transparent; transition:.15s; }
     .navbtn:hover { background:var(--surface-alt); color:var(--text); }
     .navbtn.active { background:var(--primary-soft); color:var(--primary); }
@@ -138,7 +156,6 @@ export default function App() {
     .rowline:last-child { border-bottom:none; }
     .iconbtn { border:none; background:transparent; cursor:pointer; color:var(--text-muted); padding:4px; border-radius:6px; }
     .iconbtn:hover { background:var(--surface-alt); color:var(--text); }
-    .navlabel { font-size:9px; color:var(--text-muted); margin-top:-2px; }
     .mobile-menu-btn{display:none}
     .mobile-backdrop{display:none}
     .profile-mini{display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:5px 9px 5px 5px;border-radius:999px;cursor:pointer;font-weight:600}
@@ -152,31 +169,58 @@ export default function App() {
     .profile-avatar img{width:100%;height:100%;object-fit:cover}
     .profile-grid{display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:start}
     .profile-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+    .hero-card{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary),#7C4DFF);color:white;border:none;box-shadow:0 16px 34px rgba(58,91,255,.20)}
+    .hero-card:after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;right:-70px;top:-100px;background:rgba(255,255,255,.12)}
+    .hero-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;position:relative;z-index:1}
+    .hero-btn{background:rgba(255,255,255,.16)!important;color:white!important;border:1px solid rgba(255,255,255,.18)!important;backdrop-filter:blur(6px)}
+    .stat-card{position:relative;overflow:hidden;transition:transform .16s,box-shadow .16s}.stat-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.07)}
+    .stat-icon{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--primary-soft);color:var(--primary)}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.section-head h3{margin:0;font-size:15px}
+    .empty-state{padding:20px;text-align:center;color:var(--text-muted);background:var(--surface-alt);border-radius:12px}
+    .focus-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.timer-ring{width:190px;height:190px;border-radius:50%;margin:10px auto 18px;background:conic-gradient(var(--primary) var(--progress),var(--surface-alt) 0);display:grid;place-items:center}.timer-ring:before{content:"";position:absolute}.timer-inner{width:156px;height:156px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px var(--border)}
+    .flashcard{min-height:220px;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;border:1px dashed var(--border);background:linear-gradient(145deg,var(--surface),var(--surface-alt));border-radius:16px;cursor:pointer;user-select:none}.flashcard:hover{border-color:var(--primary)}
+    .kbd{font-size:10px;padding:3px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;background:var(--surface-alt);color:var(--text-muted)}
     @media(max-width:760px){
-      .sapp{min-height:100vh;border-radius:0;width:100%}
-      .sidebar{position:fixed;z-index:70;left:0;top:0;bottom:0;width:250px;transform:translateX(-105%);transition:transform .2s ease;align-items:stretch;padding:18px 14px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
-      .sidebar.mobile-open{transform:translateX(0)}
-      .sidebar .logo{margin-left:8px;margin-bottom:16px}
-      .sidebar .navbtn{width:100%;justify-content:flex-start;padding:0 14px}
-      .sidebar .navlabel{font-size:12px;margin:0}
-      .mobile-menu-btn{display:flex;position:fixed;z-index:80;top:12px;left:12px;width:40px;height:40px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,0,0,.08)}
-      .mobile-backdrop{display:block;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.35)}
-      .topbar{padding:14px 14px 14px 62px;min-height:64px}
+      html,body{-webkit-text-size-adjust:100%}
+      .sapp{min-height:100vh;min-height:100dvh;border-radius:0;width:100%;overflow:visible}
+      .sidebar{position:fixed;z-index:70;left:0;top:0;bottom:0;width:min(290px,84vw);transform:translateX(-105%);transition:transform .22s ease,visibility 0s linear .22s;align-items:stretch;justify-content:flex-start;gap:0;overflow-y:auto;overscroll-behavior:contain;
+        padding:calc(env(safe-area-inset-top,0px) + 14px) 12px calc(env(safe-area-inset-bottom,0px) + 14px);box-shadow:0 12px 40px rgba(0,0,0,.25);visibility:hidden}
+      .sidebar.mobile-open{transform:translateX(0);visibility:visible;transition:transform .22s ease,visibility 0s}
+      .sidebar-head{justify-content:flex-start;gap:12px;padding:4px 6px 14px;margin-bottom:8px;border-bottom:1px solid var(--border)}
+      .sidebar-title{display:block;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;flex:1}
+      .sidebar-close{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:none;border-radius:10px;background:var(--surface-alt);color:var(--text);cursor:pointer}
+      .sidebar-nav{align-items:stretch;gap:4px}
+      .sidebar-foot{align-items:stretch;gap:4px;padding-top:12px;margin-top:auto;border-top:1px solid var(--border)}
+      .navitem{width:100%;flex-direction:row;justify-content:flex-start;gap:14px;min-height:50px;padding:0 16px;border-radius:12px;text-align:left}
+      .navitem .navlabel{font-size:16px;font-weight:500;line-height:1.2}
+      .navitem.active .navlabel{font-weight:600}
+      .mobile-menu-btn{display:flex;position:fixed;z-index:45;top:calc(env(safe-area-inset-top,0px) + 12px);left:12px;width:42px;height:42px;padding:0;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,0,0,.08);cursor:pointer}
+      .mobile-backdrop{display:block;position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.4)}
+      .topbar{position:sticky;top:0;z-index:40;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 12px 66px;min-height:calc(env(safe-area-inset-top,0px) + 66px);border-bottom:1px solid var(--border)}
       .topbar-title h2{font-size:18px!important}
       .profile-mini-name{display:none}
-      .content{padding:14px;max-height:none;overflow-y:visible}
-      .grid2,.grid3{grid-template-columns:1fr}
+      .iconbtn{padding:10px}
+      .content{padding:14px 14px calc(env(safe-area-inset-bottom,0px) + 28px);max-height:none;overflow-y:visible}
+      .grid2,.grid3,.focus-grid{grid-template-columns:1fr}
       .card{padding:15px}
+      .btn{min-height:42px;padding:10px 16px;font-size:14px}
+      /* 16px verhindert, dass iOS beim Antippen eines Feldes hineinzoomt */
+      input,select,textarea{font-size:16px;padding:11px 12px;min-height:44px}
+      input[type=checkbox],input[type=radio]{min-height:0}
       .profile-grid{grid-template-columns:1fr}
       .profile-avatar{margin:auto}
       .grade-entry{grid-template-columns:1fr 1fr!important}
       .grade-entry .btn{grid-column:1/-1}
+      .cal-grid{grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:3px!important}
+      .cal-cell{min-height:58px!important;padding:3px!important;border-radius:8px!important}
+      /* Dialoge als "Bottom Sheet" von unten */
+      .modal-overlay{align-items:flex-end!important}
+      .modal-content{width:100%!important;max-width:none!important;max-height:90vh!important;max-height:90dvh!important;border-radius:20px 20px 0 0!important;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important}
     }
-    @media(max-width:480px){
-      .content{padding:10px}
+    .topbar{backdrop-filter:blur(12px)}\n    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--primary-soft);outline-offset:2px}\n    @media(max-width:480px){
+      .content{padding-left:10px;padding-right:10px}
       .topbar-title h2{font-size:16px!important}
       .profile-section{padding:16px}
-      .modal-content{width:calc(100vw - 20px)!important;max-height:88vh!important}
     }
 
   `;
@@ -205,6 +249,7 @@ function AuthScreen({ dark, setDark, onLogin }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   const switchMode = (m) => { setMode(m); setError(""); setPassword(""); setConfirmPassword(""); };
 
@@ -216,11 +261,11 @@ function AuthScreen({ dark, setDark, onLogin }) {
     try {
       if (mode === "register") {
         if (password !== confirmPassword) throw new Error("Die Passwörter stimmen nicht überein.");
-        const { token, username: u } = await registerUser(username, password, name);
-        onLogin(u, token);
+        const { token, username: u } = await registerUser(username, password, name, remember);
+        onLogin(u, token, remember);
       } else {
-        const { token, username: u } = await loginUser(username, password);
-        onLogin(u, token);
+        const { token, username: u } = await loginUser(username, password, remember);
+        onLogin(u, token, remember);
       }
     } catch (err) {
       setError(err.message || "Etwas ist schiefgelaufen. Bitte versuch es erneut.");
@@ -253,16 +298,21 @@ function AuthScreen({ dark, setDark, onLogin }) {
               <label className="fl">Benutzername</label>
               <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="z. B. max123" autoComplete="username" />
             </div>
-            <div style={{ marginBottom: mode === "register" ? 10 : 18 }}>
+            <div style={{ marginBottom: mode === "register" ? 10 : 14 }}>
               <label className="fl">Passwort</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
             </div>
             {mode === "register" && (
-              <div style={{ marginBottom: 18 }}>
+              <div style={{ marginBottom: 14 }}>
                 <label className="fl">Passwort wiederholen</label>
                 <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
               </div>
             )}
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, marginBottom: 16, cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                style={{ width: 20, height: 20, padding: 0, flexShrink: 0, accentColor: "var(--primary)" }} />
+              Für immer angemeldet bleiben
+            </label>
             {error && <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 14 }}>{error}</div>}
             <button className="btn" type="submit" disabled={busy} style={{ width: "100%", justifyContent: "center" }}>
               {busy ? "Bitte warten…" : mode === "login" ? <><Lock size={14}/> Anmelden</> : <><UserPlus size={14}/> Registrieren</>}
@@ -296,27 +346,31 @@ function MainApp({ username, dark, setDark, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [data, setDataRaw] = useState(null);
   const [profile, setProfileRaw] = useState(null);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError("");
     (async () => {
       try {
         const [d, p] = await Promise.all([fetchData(), fetchProfile()]);
         if (cancelled) return;
         setDataRaw(d);
         setProfileRaw(p);
-      } catch {
-        if (!cancelled) {
-          setDataRaw({ subjects: [], grades: [], events: [], tasks: [], notes: [], schedule: [] });
-          setProfileRaw({ name: username, avatar: "" });
+      } catch (err) {
+        // Wichtig: NICHT mit leeren Daten weitermachen, sonst würden die
+        // echten Daten beim nächsten Speichern überschrieben.
+        if (!cancelled && err.status !== 401) {
+          setLoadError("Deine Daten konnten nicht geladen werden. Vielleicht wacht der Server gerade erst auf.");
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [username]);
+  }, [username, reloadKey]);
 
   useEffect(() => {
     if (loading || !data) return;
@@ -333,10 +387,10 @@ function MainApp({ username, dark, setDark, onLogout }) {
   const events = data?.events || [];
   const tasks = data?.tasks || [];
   const notes = data?.notes || [];
-  const schedule = data?.schedule || [];
+  const schedule = data?.schedule || [];\n  const flashcards = data?.flashcards || [];
 
-  const set = (key) => (fn) => setDataRaw((d) => d ? ({ ...d, [key]: typeof fn === "function" ? fn(d[key]) : fn }) : d);
-  const setSubjects = set("subjects"), setGrades = set("grades"), setEvents = set("events"), setTasks = set("tasks"), setNotes = set("notes"), setSchedule = set("schedule");
+  const set = (key) => (fn) => setDataRaw((d) => d ? ({ ...d, [key]: typeof fn === "function" ? fn(d[key] ?? []) : fn }) : d);
+  const setSubjects = set("subjects"), setGrades = set("grades"), setEvents = set("events"), setTasks = set("tasks"), setNotes = set("notes"), setSchedule = set("schedule"), setFlashcards = set("flashcards");
   const setProfile = (fn) => setProfileRaw((p) => (typeof fn === "function" ? fn(p) : fn));
 
   const subjectById = (id) => subjects.find((s) => s.id === id);
@@ -364,6 +418,20 @@ function MainApp({ username, dark, setDark, onLogout }) {
   const todaysLessons = useMemo(() => schedule.filter(s => s.day === todayDow).sort((a,b)=>a.start.localeCompare(b.start)), [schedule, todayDow]);
   const tasksToday = tasks.filter(t => t.due === todayISO() && t.status !== "erledigt");
   const openTasks = tasks.filter(t => t.status !== "erledigt").sort((a,b)=>a.due.localeCompare(b.due));
+
+  if (loadError) {
+    return (
+      <div className="sapp" data-theme={dark ? "dark" : "light"} style={{ minHeight: 640, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ margin: "auto", padding: 32, textAlign: "center", maxWidth: 360 }}>
+          <div style={{ color: "var(--text-muted)", marginBottom: 16, fontSize: 14 }}>{loadError}</div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <button className="btn" onClick={() => setReloadKey((k) => k + 1)}>Erneut versuchen</button>
+            <button className="btn secondary" onClick={onLogout}>Abmelden</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !data || !profile) {
     return (
@@ -417,31 +485,54 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
     { id: "schedule", icon: Clock, label: "Plan" },
   ];
   const navigate = (id) => { setTab(id); setMobileNav(false); };
+
+  // Wenn das Menü offen ist: Seite dahinter nicht scrollen, Esc schließt es.
+  useEffect(() => {
+    if (!mobileNav) return;
+    const onKey = (e) => { if (e.key === "Escape") setMobileNav(false); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, [mobileNav, setMobileNav]);
+
   return (
     <>
-      <button className="mobile-menu-btn" onClick={() => setMobileNav(v => !v)} aria-label="Menü"><Menu size={20}/></button>
+      {!mobileNav && (
+        <button className="mobile-menu-btn" onClick={() => setMobileNav(true)} aria-label="Menü öffnen"><Menu size={20}/></button>
+      )}
       {mobileNav && <div className="mobile-backdrop" onClick={() => setMobileNav(false)} />}
-      <div className={"sidebar " + (mobileNav ? "mobile-open" : "")}>
-        <div className="logo">S</div>
-        {items.map((it) => (
-          <div key={it.id} style={{display:"flex",flexDirection:"column",alignItems:"center",width:"100%"}}>
-            <button className={"navbtn"+(tab===it.id?" active":"")} onClick={() => navigate(it.id)} title={it.label}><it.icon size={19}/></button>
-            <span className="navlabel">{it.label}</span>
-          </div>
-        ))}
-        <div style={{flex:1}}/>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"100%"}}>
-          <button className={"navbtn"+(tab==="profile"?" active":"")} onClick={() => navigate("profile")} title="Profil"><UserCircle size={19}/></button>
-          <span className="navlabel">Profil</span>
+      <aside className={"sidebar " + (mobileNav ? "mobile-open" : "")}>
+        <div className="sidebar-head">
+          <div className="logo">S</div>
+          <span className="sidebar-title">Schüler-App</span>
+          <button className="sidebar-close" onClick={() => setMobileNav(false)} aria-label="Menü schließen"><X size={20}/></button>
         </div>
-        <button className="navbtn" onClick={() => setDark(d => !d)} title="Theme wechseln">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button>
-      </div>
+        <nav className="sidebar-nav">
+          {items.map((it) => (
+            <button key={it.id} className={"navitem" + (tab === it.id ? " active" : "")} onClick={() => navigate(it.id)} title={it.label}>
+              <it.icon size={20}/>
+              <span className="navlabel">{it.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          <button className={"navitem" + (tab === "profile" ? " active" : "")} onClick={() => navigate("profile")} title="Profil">
+            <UserCircle size={20}/>
+            <span className="navlabel">Profil</span>
+          </button>
+          <button className="navitem" onClick={() => setDark((d) => !d)} title="Theme wechseln">
+            {dark ? <Sun size={20}/> : <Moon size={20}/>}
+            <span className="navlabel">{dark ? "Hell" : "Dunkel"}</span>
+          </button>
+        </div>
+      </aside>
     </>
   );
 }
 
 function Topbar({ tab, profile, setTab, username, onLogout }) {
-  const titles = { dashboard:"Dein Überblick", grades:"Noten", calendar:"Termine & Kalender", tasks:"Aufgaben", notes:"Notizen", schedule:"Stundenplan", profile:"Mein Profil" };
+  const titles = { dashboard:"Dein Überblick", grades:"Noten", calendar:"Termine & Kalender", tasks:"Aufgaben", notes:"Notizen", study:"Lerncenter", schedule:"Stundenplan", profile:"Mein Profil" };
   const now = new Date();
   const weekday = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"][now.getDay()];
   const initials = (profile.name || "S").trim().slice(0,1).toUpperCase();
@@ -466,84 +557,149 @@ function GradeBadge({ value, color }) {
   return <span className="pill" style={{ background: color + "22", color }}>{value != null ? value.toFixed(2) : "–"}</span>;
 }
 
-function Dashboard({ subjects, overallAvg, subjectAverages, todaysLessons, upcomingEvents, tasksToday, subjectById }) {
-  const best = [...subjectAverages].filter(a=>a.weighted!=null).sort((a,b)=>a.weighted-b.weighted)[0];
-  const worst = [...subjectAverages].filter(a=>a.weighted!=null).sort((a,b)=>b.weighted-a.weighted)[0];
+function Dashboard({ subjects, overallAvg, subjectAverages, todaysLessons, upcomingEvents, tasksToday, openTasks, subjectById, profile, setTab }) {
+  const nextLesson = todaysLessons[0];
+  const dueSoon = [...openTasks].filter(t => daysUntil(t.due) >= 0).slice(0, 4);
+  const completion = tasksToday.length === 0 ? 100 : 0;
+  const firstName = (profile?.name || "Schüler").split(" ")[0];
+
   return (
     <div>
-      <div className="grid3" style={{ marginBottom: 18 }}>
-        <div className="card">
-          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>Gesamtdurchschnitt</div>
-          <div className="disp" style={{ fontSize: 34, fontWeight: 700, marginTop: 4 }}>{overallAvg != null ? overallAvg.toFixed(2) : "–"}</div>
-        </div>
-        <div className="card">
-          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, display:"flex", alignItems:"center", gap:5 }}><TrendingUp size={13}/> Bestes Fach</div>
-          {best ? <div style={{ marginTop: 8, display:"flex", alignItems:"center", gap:8 }}><span style={{width:8,height:8,borderRadius:99,background:best.subject.color}}/><b>{best.subject.name}</b><GradeBadge value={best.weighted} color={best.subject.color} /></div> : <div style={{marginTop:8,color:"var(--text-muted)"}}>Noch keine Noten</div>}
-        </div>
-        <div className="card">
-          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, display:"flex", alignItems:"center", gap:5 }}><TrendingDown size={13}/> Schwächstes Fach</div>
-          {worst ? <div style={{ marginTop: 8, display:"flex", alignItems:"center", gap:8 }}><span style={{width:8,height:8,borderRadius:99,background:worst.subject.color}}/><b>{worst.subject.name}</b><GradeBadge value={worst.weighted} color={worst.subject.color} /></div> : <div style={{marginTop:8,color:"var(--text-muted)"}}>Noch keine Noten</div>}
+      <div className="card hero-card" style={{marginBottom:16,padding:24}}>
+        <div style={{position:"relative",zIndex:1,maxWidth:650}}>
+          <div style={{fontSize:12,opacity:.82,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>Dein Lernbereich</div>
+          <h1 className="disp" style={{fontSize:30,margin:"6px 0 4px"}}>Hi {firstName} 👋</h1>
+          <div style={{opacity:.9,fontSize:14,lineHeight:1.5}}>Alles Wichtige für Schule, Hausaufgaben und Prüfungsvorbereitung an einem Ort.</div>
+          <div className="hero-actions">
+            <button className="btn hero-btn" onClick={()=>setTab("study")}><Timer size={15}/> Lernsession starten</button>
+            <button className="btn hero-btn" onClick={()=>setTab("tasks")}><CheckSquare2 size={15}/> Aufgaben ansehen</button>
+            <button className="btn hero-btn" onClick={()=>setTab("calendar")}><CalendarDays size={15}/> Termine</button>
+          </div>
         </div>
       </div>
 
-      <div className="grid2">
-        <div className="card">
-          <h3 style={{ marginTop: 0, fontSize: 15 }}>Heutiger Stundenplan</h3>
-          {todaysLessons.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Heute keine Stunden eingetragen.</div>}
-          {todaysLessons.map((l) => {
-            const s = subjectById(l.subjectId);
-            return (
-              <div className="rowline" key={l.id}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 99, background: s?.color }} />
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{s?.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Raum {l.room} · {l.teacher}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{l.start} – {l.end}</div>
-              </div>
-            );
-          })}
+      <div className="grid3" style={{marginBottom:16}}>
+        <div className="card stat-card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:11,color:"var(--text-muted)",fontWeight:700}}>NOTENDURCHSCHNITT</div><div className="disp" style={{fontSize:30,fontWeight:700,marginTop:3}}>{overallAvg != null ? overallAvg.toFixed(2) : "–"}</div></div><div className="stat-icon"><GraduationCap size={18}/></div></div>
         </div>
-
-        <div className="card">
-          <h3 style={{ marginTop: 0, fontSize: 15 }}>Nächste Termine</h3>
-          {upcomingEvents.slice(0, 4).map((e) => {
-            const s = subjectById(e.subjectId);
-            return (
-              <div className="rowline" key={e.id}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 99, background: s?.color || "var(--text-muted)" }} />
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{e.title}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{fmtDate(e.date)} · {e.from} Uhr</div>
-                  </div>
-                </div>
-                <span className="pill" style={{ background: "var(--surface-alt)", color: "var(--text-muted)" }}>in {daysUntil(e.date)} Tg.</span>
-              </div>
-            );
-          })}
-          {upcomingEvents.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Keine bevorstehenden Termine.</div>}
+        <div className="card stat-card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:11,color:"var(--text-muted)",fontWeight:700}}>OFFENE AUFGABEN</div><div className="disp" style={{fontSize:30,fontWeight:700,marginTop:3}}>{openTasks.length}</div></div><div className="stat-icon"><CheckSquare2 size={18}/></div></div>
+          <div style={{fontSize:11,color:"var(--text-muted)",marginTop:8}}>{tasksToday.length ? `${tasksToday.length} heute fällig` : "Heute nichts offen 🎉"}</div>
+        </div>
+        <div className="card stat-card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:11,color:"var(--text-muted)",fontWeight:700}}>FÄCHER</div><div className="disp" style={{fontSize:30,fontWeight:700,marginTop:3}}>{subjects.length}</div></div><div className="stat-icon"><BookOpen size={18}/></div></div>
+          <div style={{fontSize:11,color:"var(--text-muted)",marginTop:8}}>{subjects.length ? "Deine Fächer sind eingerichtet." : "Füge dein erstes Fach hinzu."}</div>
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0, fontSize: 15 }}>Aufgaben für heute</h3>
-        {tasksToday.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Nichts fällig für heute — genieß den Tag 🎉</div>}
-        {tasksToday.map((t) => {
-          const s = subjectById(t.subjectId);
-          return (
-            <div className="rowline" key={t.id}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Circle size={15} color="var(--text-muted)" />
-                <span style={{ fontSize: 13 }}>{t.title}</span>
-              </div>
-              {s && <span className="pill" style={{ background: s.color + "22", color: s.color }}>{s.name}</span>}
+      <div className="focus-grid">
+        <div className="card">
+          <div className="section-head"><h3>Als Nächstes</h3><button className="btn secondary" onClick={()=>setTab("schedule")}>Stundenplan <ArrowRight size={13}/></button></div>
+          {nextLesson ? (
+            <div style={{padding:16,borderRadius:14,background:"var(--surface-alt)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{width:12,height:42,borderRadius:8,background:subjectById(nextLesson.subjectId)?.color||"var(--primary)"}}/><div><div style={{fontWeight:700,fontSize:16}}>{subjectById(nextLesson.subjectId)?.name || "Unterricht"}</div><div style={{fontSize:12,color:"var(--text-muted)",marginTop:3}}>{nextLesson.start}–{nextLesson.end} · Raum {nextLesson.room || "–"} · {nextLesson.teacher || "–"}</div></div></div>
+              <span className="pill" style={{background:"var(--primary-soft)",color:"var(--primary)"}}>Heute</span>
             </div>
-          );
-        })}
+          ) : <div className="empty-state">Heute keine Stunden eingetragen.</div>}
+
+          <div className="section-head" style={{marginTop:18}}><h3>Heutige Aufgaben</h3><button className="iconbtn" onClick={()=>setTab("tasks")}><ArrowRight size={16}/></button></div>
+          {tasksToday.length ? tasksToday.slice(0,4).map(t=><div className="rowline" key={t.id}><div style={{display:"flex",alignItems:"center",gap:9}}><Circle size={15} color="var(--text-muted)"/><span style={{fontSize:13}}>{t.title}</span></div>{subjectById(t.subjectId)&&<span className="pill" style={{background:subjectById(t.subjectId).color+"22",color:subjectById(t.subjectId).color}}>{subjectById(t.subjectId).name}</span>}</div>) : <div className="empty-state">Alles für heute erledigt 🎉</div>}
+        </div>
+
+        <div className="card">
+          <div className="section-head"><h3>Demnächst fällig</h3><button className="btn secondary" onClick={()=>setTab("calendar")}>Kalender <ArrowRight size={13}/></button></div>
+          {dueSoon.length ? dueSoon.map(t=><div className="rowline" key={t.id}>
+            <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.title}</div><div style={{fontSize:11,color:"var(--text-muted)",marginTop:2}}>{subjectById(t.subjectId)?.name || "Allgemein"} · {fmtDate(t.due)}</div></div>
+            <span className="pill" style={{background:daysUntil(t.due)<=1?"var(--warning)22":"var(--surface-alt)",color:daysUntil(t.due)<=1?"var(--warning)":"var(--text-muted)"}}>{daysUntil(t.due)===0?"Heute":daysUntil(t.due)===1?"Morgen":`in ${daysUntil(t.due)} Tg.`}</span>
+          </div>) : <div className="empty-state">Keine offenen Aufgaben mit Termin.</div>}
+
+          <div style={{marginTop:18,padding:14,borderRadius:14,background:"var(--primary-soft)",display:"flex",gap:11,alignItems:"flex-start"}}>
+            <div className="stat-icon" style={{flexShrink:0}}><Sparkles size={17}/></div>
+            <div><div style={{fontWeight:700,fontSize:13}}>Lerntipp</div><div style={{fontSize:12,color:"var(--text-muted)",lineHeight:1.5,marginTop:3}}>25 Minuten konzentriert lernen, dann 5 Minuten Pause. Im Lerncenter kannst du direkt loslegen.</div></div>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function StudyHub({ flashcards, setFlashcards, subjects, subjectById }) {
+  const [seconds, setSeconds] = useState(25*60);
+  const [running, setRunning] = useState(false);
+  const [mode, setMode] = useState("focus");
+  const [flipped, setFlipped] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({question:"",answer:"",subjectId:""});
+  const modes = { focus:25*60, short:5*60, long:15*60 };
+  const cards = flashcards || [];
+  const current = cards[index % Math.max(cards.length,1)];
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setSeconds(v => {
+      if (v <= 1) { setRunning(false); return 0; }
+      return v - 1;
+    }),1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const setTimer = (m) => { setMode(m); setSeconds(modes[m]); setRunning(false); };
+  const mm = String(Math.floor(seconds/60)).padStart(2,"0"), ss=String(seconds%60).padStart(2,"0");
+  const progress = `${Math.max(0,Math.min(100,100-(seconds/modes[mode])*100))}%`;
+  const addCard = () => { if(!form.question.trim() || !form.answer.trim()) return; setFlashcards(c=>[...(c||[]),{...form,id:uid()}]); setForm({question:"",answer:"",subjectId:""}); setShowForm(false); };
+  const nextCard = () => { setFlipped(false); setIndex(i => cards.length ? (i+1)%cards.length : 0); };
+
+  return (
+    <div>
+      <div className="grid3" style={{marginBottom:16}}>
+        {[["focus","Fokus","25 Min."],["short","Kurze Pause","5 Min."],["long","Lange Pause","15 Min."]].map(([id,label,time])=>
+          <button key={id} className={"card stat-card"} onClick={()=>setTimer(id)} style={{textAlign:"left",cursor:"pointer",border:mode===id?"2px solid var(--primary)":"1px solid var(--border)"}}>
+            <div style={{fontWeight:700,fontSize:13}}>{label}</div><div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>{time}</div>
+          </button>
+        )}
+      </div>
+      <div className="focus-grid">
+        <div className="card" style={{textAlign:"center"}}>
+          <div className="section-head"><h3><Timer size={16} style={{verticalAlign:"-3px"}}/> Fokus-Timer</h3><span className="pill" style={{background:running?"var(--success)22":"var(--surface-alt)",color:running?"var(--success)":"var(--text-muted)"}}>{running?"Läuft":"Bereit"}</span></div>
+          <div className="timer-ring" style={{"--progress":progress}}><div className="timer-inner"><div className="disp" style={{fontSize:36,fontWeight:700}}>{mm}:{ss}</div><div style={{fontSize:11,color:"var(--text-muted)"}}>konzentriert bleiben</div></div></div>
+          <div style={{display:"flex",justifyContent:"center",gap:8}}><button className="btn" onClick={()=>setRunning(v=>!v)}>{running?"Pause":"Start"} <Zap size={14}/></button><button className="btn secondary" onClick={()=>setTimer(mode)}><RotateCcw size={14}/> Reset</button></div>
+          <div style={{fontSize:11,color:"var(--text-muted)",marginTop:12}}>Tipp: Handy weglegen und nur eine Aufgabe bearbeiten.</div>
+        </div>
+
+        <div className="card">
+          <div className="section-head"><h3><Brain size={16} style={{verticalAlign:"-3px"}}/> Lernkarten</h3><button className="btn" onClick={()=>setShowForm(true)}><Plus size={14}/> Karte</button></div>
+          {cards.length ? <>
+            <div className="flashcard" onClick={()=>setFlipped(v=>!v)}>
+              <div>
+                <div style={{fontSize:10,color:"var(--text-muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{flipped?"Antwort":"Frage"}</div>
+                <div style={{fontSize:18,fontWeight:700,lineHeight:1.45}}>{flipped?current.answer:current.question}</div>
+                {current.subjectId && subjectById(current.subjectId) && <span className="pill" style={{marginTop:12,background:subjectById(current.subjectId).color+"22",color:subjectById(current.subjectId).color}}>{subjectById(current.subjectId).name}</span>}
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+              <span style={{fontSize:11,color:"var(--text-muted)"}}>{index+1} / {cards.length} · <span className="kbd">Klick</span> zum Umdrehen</span>
+              <div style={{display:"flex",gap:5}}><button className="iconbtn" onClick={nextCard}><ArrowRight size={17}/></button><button className="iconbtn" onClick={()=>setFlashcards(c=>c.filter(x=>x.id!==current.id))}><Trash2 size={14}/></button></div>
+            </div>
+          </> : <div className="empty-state"><Brain size={22}/><div style={{marginTop:7}}>Noch keine Lernkarten.</div></div>}
+        </div>
+      </div>
+
+      <div className="card" style={{marginTop:16}}>
+        <div className="section-head"><h3><Target size={16} style={{verticalAlign:"-3px"}}/> Lernroutine</h3><span className="pill" style={{background:"var(--success)22",color:"var(--success)"}}><Flame size={11}/> Fokus</span></div>
+        <div className="grid3">
+          <div style={{padding:14,borderRadius:12,background:"var(--surface-alt)"}}><div style={{fontSize:11,color:"var(--text-muted)"}}>Heute</div><b style={{fontSize:20}}>1</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Session geplant</div></div>
+          <div style={{padding:14,borderRadius:12,background:"var(--surface-alt)"}}><div style={{fontSize:11,color:"var(--text-muted)"}}>Ziel</div><b style={{fontSize:20}}>25 Min.</b><div style={{fontSize:11,color:"var(--text-muted)"}}>konzentriertes Lernen</div></div>
+          <div style={{padding:14,borderRadius:12,background:"var(--surface-alt)"}}><div style={{fontSize:11,color:"var(--text-muted)"}}>Fortschritt</div><b style={{fontSize:20}}>0%</b><div style={{fontSize:11,color:"var(--text-muted)"}}>dieses Tagesziels</div></div>
+        </div>
+      </div>
+
+      {showForm && <Modal onClose={()=>setShowForm(false)} title="Neue Lernkarte">
+        <label className="fl">Frage</label><textarea rows={3} value={form.question} onChange={e=>setForm({...form,question:e.target.value})} placeholder="z. B. Was ist die pq-Formel?"/>
+        <div style={{height:10}}/><label className="fl">Antwort</label><textarea rows={4} value={form.answer} onChange={e=>setForm({...form,answer:e.target.value})} placeholder="Kurze, klare Antwort"/>
+        <div style={{height:10}}/><label className="fl">Fach</label><select value={form.subjectId} onChange={e=>setForm({...form,subjectId:e.target.value})}><option value="">Allgemein</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><button className="btn" onClick={addCard}>Speichern</button></div>
+      </Modal>}
     </div>
   );
 }
@@ -886,16 +1042,16 @@ function CalendarView({ events, setEvents, subjects, subjectById }) {
 
       {view === "month" && (
         <div className="card" style={{ padding: 10, overflowX:"auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(48px,1fr))", gap: 6, marginBottom: 6 }}>
+          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(48px,1fr))", gap: 6, marginBottom: 6 }}>
             {WEEKDAYS.map((w) => <div key={w} style={{ textAlign: "center", fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{w}</div>)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(48px,1fr))", gap: 6 }}>
+          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(48px,1fr))", gap: 6 }}>
             {grid.map((d, i) => {
               const inMonth = d.getMonth() === month;
               const dayEvents = eventsOn(d);
               const isToday = iso(d) === todayISO();
               return (
-                <div key={i} onClick={() => openNew(iso(d))} style={{
+                <div key={i} className="cal-cell" onClick={() => openNew(iso(d))} style={{
                   minHeight: 72, borderRadius: 10, padding: 6, cursor: "pointer",
                   background: inMonth ? "var(--surface-alt)" : "transparent",
                   opacity: inMonth ? 1 : 0.4,
@@ -989,7 +1145,7 @@ function CalendarView({ events, setEvents, subjects, subjectById }) {
 
 function Modal({ children, onClose, title }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
+    <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
       <div className="card modal-content" style={{ width: 460, maxHeight: "80vh", overflowY: "auto", background: "var(--surface)" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <b style={{ fontSize: 15 }}>{title}</b>
