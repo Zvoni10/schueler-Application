@@ -62,7 +62,7 @@ function emptyData() {
 function normalizeSettings(settings) {
   const s = settings && typeof settings === "object" ? settings : {};
   return {
-    language: s.language === "en" ? "en" : "de",
+    language: ["de","en","fr","es","it","tr","hr","pl","pt","nl","sv","ar"].includes(s.language) ? s.language : "de",
     appearance: ["dark", "light", "system"].includes(s.appearance) ? s.appearance : "dark",
     compactMode: !!s.compactMode,
     reducedMotion: !!s.reducedMotion,

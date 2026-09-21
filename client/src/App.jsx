@@ -161,7 +161,7 @@ export default function App() {
     .pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:600; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-    input, select, textarea { font-family:'Inter'; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; width:100%; }
+    input, select, textarea { box-sizing:border-box; font-family:'Inter'; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; width:100%; }
     label.fl { font-size:12px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px; }
     .rowline { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
     .rowline:last-child { border-bottom:none; }
@@ -222,10 +222,10 @@ export default function App() {
       input[type=checkbox],input[type=radio]{min-height:0}
       .profile-grid{grid-template-columns:1fr}
       .profile-avatar{margin:auto}
-      .grade-entry{grid-template-columns:1fr 1fr!important}
+      .grade-entry{grid-template-columns:1fr!important}.grade-entry > *{min-width:0;width:100%}.grade-entry input,.grade-entry select{min-width:0;max-width:100%}
       .subject-header{align-items:flex-start!important;gap:8px!important}
       .subject-header > div:first-child{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap!important;align-items:center!important;row-gap:5px!important}
-      .subject-header > div:first-child b{flex:0 0 auto;max-width:calc(100vw - 130px);overflow:visible!important;text-overflow:clip!important;white-space:normal!important;word-break:break-word;font-size:14px!important}
+      .subject-header > div:first-child b{flex:1 1 auto;min-width:0;max-width:none;overflow-wrap:anywhere;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;word-break:break-word;font-size:14px!important}
       .subject-header > div:first-child > span:last-child{flex:0 0 100%;white-space:normal!important;line-height:1.25}
       .subject-header > div:last-child{flex-shrink:0!important}
       .grade-entry .btn{grid-column:1/-1}
@@ -351,7 +351,7 @@ function AuthScreen({ dark, setDark, onLogin }) {
           </div>
         </div>
         <div style={{ textAlign: "center", marginTop: 14 }}>
-          <button className="navbtn" style={{ width: 40, height: 40 }} onClick={() => setDark((d) => !d)} title="Theme wechseln">
+          <button className="navbtn" style={{ width: 40, height: 40 }} onClick={() => setDark((d) => !d)} title={dark ? tr(language,"light") : tr(language,"dark")}>
             {dark ? <Sun size={16}/> : <Moon size={16}/>}
           </button>
         </div>
@@ -361,6 +361,32 @@ function AuthScreen({ dark, setDark, onLogin }) {
 }
 
 const DEFAULT_SETTINGS = { language: "de", appearance: "dark", compactMode: false, reducedMotion: false, startPage: "dashboard" };
+
+const LANGUAGES = [
+  ["de", "Deutsch"], ["en", "English"], ["fr", "Français"], ["es", "Español"],
+  ["it", "Italiano"], ["tr", "Türkçe"], ["hr", "Hrvatski"], ["pl", "Polski"],
+  ["pt", "Português"], ["nl", "Nederlands"], ["sv", "Svenska"], ["ar", "العربية"]
+];
+
+const I18N = {
+  de: { overview:"Übersicht", school:"Schule", learning:"Lernen", communication:"Kommunikation", account:"Konto", start:"Start", grades:"Noten", calendar:"Termine", tasks:"Aufgaben", schedule:"Stundenpläne", notes:"Notizen", study:"Lerncenter", mailbox:"MailBox", settings:"Einstellungen", profile:"Profil", admin:"Administration",
+    overviewTitle:"Dein Überblick", calendarTitle:"Termine & Kalender", profileTitle:"Mein Profil", logout:"Abmelden", openProfile:"Profil öffnen", light:"Helles Design", dark:"Dunkles Design", openMenu:"Menü öffnen", closeMenu:"Menü schließen",
+    generalSettings:"Allgemeine Einstellungen", settingsSaved:"Deine Einstellungen werden automatisch in deinem Schulio-Konto gespeichert.", language:"Sprache", languageHint:"Bevorzugte Sprache für Schulio", appearance:"Darstellung", appearanceHint:"Hell, dunkel oder automatisch", darkMode:"Dunkel", lightMode:"Hell", systemMode:"System", compact:"Kompakte Ansicht", compactHint:"Weniger Abstand für mehr Inhalt", reduced:"Animationen reduzieren", reducedHint:"Für eine ruhigere Bedienung", startPage:"Startseite", startPageHint:"Diese Seite wird nach dem Login geöffnet.", saved:"Gespeichert", savedHint:"Sprache, Darstellung und persönliche Anzeigeoptionen werden zusammen mit deinen Schulio-Daten auf deinem Konto gespeichert.",
+    yourMailbox:"Deine MailBox", mailboxHint:"Mitteilungen von Schulio und der Organisation.", noMessages:"Du hast noch keine Nachrichten.", new:"Neu"
+  },
+  en: { overview:"Overview", school:"School", learning:"Learning", communication:"Communication", account:"Account", start:"Home", grades:"Grades", calendar:"Calendar", tasks:"Tasks", schedule:"Timetables", notes:"Notes", study:"Study Center", mailbox:"Mailbox", settings:"Settings", profile:"Profile", admin:"Administration", overviewTitle:"Your Overview", calendarTitle:"Calendar", profileTitle:"My Profile", logout:"Log out", openProfile:"Open profile", light:"Light design", dark:"Dark design", openMenu:"Open menu", closeMenu:"Close menu", generalSettings:"General settings", settingsSaved:"Your settings are saved automatically to your Schulio account.", language:"Language", languageHint:"Preferred language for Schulio", appearance:"Appearance", appearanceHint:"Light, dark or automatic", darkMode:"Dark", lightMode:"Light", systemMode:"System", compact:"Compact view", compactHint:"Less spacing for more content", reduced:"Reduce animations", reducedHint:"For a calmer interface", startPage:"Start page", startPageHint:"This page opens after login.", saved:"Saved", savedHint:"Language, appearance and personal display options are saved with your Schulio data.", yourMailbox:"Your Mailbox", mailboxHint:"Messages from Schulio and the organisation.", noMessages:"You have no messages yet.", new:"New" },
+  fr: { overview:"Aperçu", school:"École", learning:"Apprentissage", communication:"Communication", account:"Compte", start:"Accueil", grades:"Notes", calendar:"Calendrier", tasks:"Tâches", schedule:"Emplois du temps", notes:"Notes", study:"Centre d’apprentissage", mailbox:"Boîte mail", settings:"Paramètres", profile:"Profil", admin:"Administration", overviewTitle:"Votre aperçu", calendarTitle:"Calendrier", profileTitle:"Mon profil", logout:"Se déconnecter", openProfile:"Ouvrir le profil", light:"Mode clair", dark:"Mode sombre", openMenu:"Ouvrir le menu", closeMenu:"Fermer le menu", generalSettings:"Paramètres généraux", settingsSaved:"Vos paramètres sont enregistrés automatiquement.", language:"Langue", languageHint:"Langue préférée pour Schulio", appearance:"Apparence", appearanceHint:"Clair, sombre ou automatique", darkMode:"Sombre", lightMode:"Clair", systemMode:"Système", compact:"Vue compacte", compactHint:"Moins d’espace pour plus de contenu", reduced:"Réduire les animations", reducedHint:"Pour une interface plus calme", startPage:"Page d’accueil", startPageHint:"Cette page s’ouvre après la connexion.", saved:"Enregistré", savedHint:"Vos préférences sont enregistrées avec vos données Schulio.", yourMailbox:"Votre boîte mail", mailboxHint:"Messages de Schulio et de l’organisation.", noMessages:"Vous n’avez pas encore de messages.", new:"Nouveau" },
+  es: { overview:"Resumen", school:"Escuela", learning:"Aprendizaje", communication:"Comunicación", account:"Cuenta", start:"Inicio", grades:"Notas", calendar:"Calendario", tasks:"Tareas", schedule:"Horarios", notes:"Notas", study:"Centro de estudio", mailbox:"Buzón", settings:"Ajustes", profile:"Perfil", admin:"Administración", overviewTitle:"Tu resumen", calendarTitle:"Calendario", profileTitle:"Mi perfil", logout:"Cerrar sesión", openProfile:"Abrir perfil", light:"Diseño claro", dark:"Diseño oscuro", openMenu:"Abrir menú", closeMenu:"Cerrar menú", generalSettings:"Ajustes generales", settingsSaved:"Tus ajustes se guardan automáticamente.", language:"Idioma", languageHint:"Idioma preferido para Schulio", appearance:"Apariencia", appearanceHint:"Claro, oscuro o automático", darkMode:"Oscuro", lightMode:"Claro", systemMode:"Sistema", compact:"Vista compacta", compactHint:"Menos espacio para más contenido", reduced:"Reducir animaciones", reducedHint:"Para una interfaz más tranquila", startPage:"Página de inicio", startPageHint:"Esta página se abre después de iniciar sesión.", saved:"Guardado", savedHint:"Tus preferencias se guardan con tus datos de Schulio.", yourMailbox:"Tu buzón", mailboxHint:"Mensajes de Schulio y de la organización.", noMessages:"Aún no tienes mensajes.", new:"Nuevo" },
+  it: { overview:"Panoramica", school:"Scuola", learning:"Apprendimento", communication:"Comunicazione", account:"Account", start:"Home", grades:"Voti", calendar:"Calendario", tasks:"Attività", schedule:"Orari", notes:"Note", study:"Centro studio", mailbox:"Posta", settings:"Impostazioni", profile:"Profilo", admin:"Amministrazione", overviewTitle:"La tua panoramica", calendarTitle:"Calendario", profileTitle:"Il mio profilo", logout:"Esci", openProfile:"Apri profilo", light:"Tema chiaro", dark:"Tema scuro", openMenu:"Apri menu", closeMenu:"Chiudi menu", generalSettings:"Impostazioni generali", settingsSaved:"Le tue impostazioni vengono salvate automaticamente.", language:"Lingua", languageHint:"Lingua preferita per Schulio", appearance:"Aspetto", appearanceHint:"Chiaro, scuro o automatico", darkMode:"Scuro", lightMode:"Chiaro", systemMode:"Sistema", compact:"Vista compatta", compactHint:"Meno spazio per più contenuti", reduced:"Riduci animazioni", reducedHint:"Per un’interfaccia più tranquilla", startPage:"Pagina iniziale", startPageHint:"Questa pagina viene aperta dopo l’accesso.", saved:"Salvato", savedHint:"Le preferenze vengono salvate con i tuoi dati Schulio.", yourMailbox:"La tua posta", mailboxHint:"Messaggi da Schulio e dall’organizzazione.", noMessages:"Non hai ancora messaggi.", new:"Nuovo" },
+  tr: { overview:"Genel bakış", school:"Okul", learning:"Öğrenme", communication:"İletişim", account:"Hesap", start:"Ana sayfa", grades:"Notlar", calendar:"Takvim", tasks:"Görevler", schedule:"Ders programları", notes:"Notlar", study:"Çalışma merkezi", mailbox:"Posta kutusu", settings:"Ayarlar", profile:"Profil", admin:"Yönetim", overviewTitle:"Genel bakışın", calendarTitle:"Takvim", profileTitle:"Profilim", logout:"Çıkış yap", openProfile:"Profili aç", light:"Açık tema", dark:"Koyu tema", openMenu:"Menüyü aç", closeMenu:"Menüyü kapat", generalSettings:"Genel ayarlar", settingsSaved:"Ayarların Schulio hesabına otomatik kaydedilir.", language:"Dil", languageHint:"Schulio için tercih edilen dil", appearance:"Görünüm", appearanceHint:"Açık, koyu veya otomatik", darkMode:"Koyu", lightMode:"Açık", systemMode:"Sistem", compact:"Kompakt görünüm", compactHint:"Daha fazla içerik için daha az boşluk", reduced:"Animasyonları azalt", reducedHint:"Daha sakin bir arayüz için", startPage:"Başlangıç sayfası", startPageHint:"Girişten sonra bu sayfa açılır.", saved:"Kaydedildi", savedHint:"Dil, görünüm ve kişisel seçenekler Schulio verilerinle kaydedilir.", yourMailbox:"Posta kutun", mailboxHint:"Schulio ve organizasyondan mesajlar.", noMessages:"Henüz mesajın yok.", new:"Yeni" },
+  hr: { overview:"Pregled", school:"Škola", learning:"Učenje", communication:"Komunikacija", account:"Račun", start:"Početna", grades:"Ocjene", calendar:"Kalendar", tasks:"Zadaci", schedule:"Rasporedi", notes:"Bilješke", study:"Centar za učenje", mailbox:"Pošta", settings:"Postavke", profile:"Profil", admin:"Administracija", overviewTitle:"Tvoj pregled", calendarTitle:"Kalendar", profileTitle:"Moj profil", logout:"Odjava", openProfile:"Otvori profil", light:"Svijetli dizajn", dark:"Tamni dizajn", openMenu:"Otvori izbornik", closeMenu:"Zatvori izbornik", generalSettings:"Opće postavke", settingsSaved:"Postavke se automatski spremaju.", language:"Jezik", languageHint:"Preferirani jezik za Schulio", appearance:"Izgled", appearanceHint:"Svijetlo, tamno ili automatski", darkMode:"Tamno", lightMode:"Svijetlo", systemMode:"Sustav", compact:"Kompaktni prikaz", compactHint:"Manje razmaka za više sadržaja", reduced:"Smanji animacije", reducedHint:"Za mirnije sučelje", startPage:"Početna stranica", startPageHint:"Ova se stranica otvara nakon prijave.", saved:"Spremljeno", savedHint:"Postavke jezika i prikaza spremaju se uz tvoje Schulio podatke.", yourMailbox:"Tvoja pošta", mailboxHint:"Poruke Schulija i organizacije.", noMessages:"Još nemaš poruka.", new:"Novo" },
+  pl: { overview:"Przegląd", school:"Szkoła", learning:"Nauka", communication:"Komunikacja", account:"Konto", start:"Start", grades:"Oceny", calendar:"Kalendarz", tasks:"Zadania", schedule:"Plany lekcji", notes:"Notatki", study:"Centrum nauki", mailbox:"Skrzynka", settings:"Ustawienia", profile:"Profil", admin:"Administracja", overviewTitle:"Twój przegląd", calendarTitle:"Kalendarz", profileTitle:"Mój profil", logout:"Wyloguj", openProfile:"Otwórz profil", light:"Jasny wygląd", dark:"Ciemny wygląd", openMenu:"Otwórz menu", closeMenu:"Zamknij menu", generalSettings:"Ustawienia ogólne", settingsSaved:"Ustawienia są automatycznie zapisywane.", language:"Język", languageHint:"Preferowany język Schulio", appearance:"Wygląd", appearanceHint:"Jasny, ciemny lub automatyczny", darkMode:"Ciemny", lightMode:"Jasny", systemMode:"System", compact:"Widok kompaktowy", compactHint:"Mniej odstępów, więcej treści", reduced:"Ogranicz animacje", reducedHint:"Dla spokojniejszego interfejsu", startPage:"Strona startowa", startPageHint:"Ta strona otwiera się po zalogowaniu.", saved:"Zapisano", savedHint:"Preferencje są zapisywane z danymi Schulio.", yourMailbox:"Twoja skrzynka", mailboxHint:"Wiadomości od Schulio i organizacji.", noMessages:"Nie masz jeszcze wiadomości.", new:"Nowa" },
+  pt: { overview:"Visão geral", school:"Escola", learning:"Aprendizagem", communication:"Comunicação", account:"Conta", start:"Início", grades:"Notas", calendar:"Calendário", tasks:"Tarefas", schedule:"Horários", notes:"Notas", study:"Centro de estudo", mailbox:"Caixa de entrada", settings:"Definições", profile:"Perfil", admin:"Administração", overviewTitle:"A tua visão geral", calendarTitle:"Calendário", profileTitle:"O meu perfil", logout:"Terminar sessão", openProfile:"Abrir perfil", light:"Tema claro", dark:"Tema escuro", openMenu:"Abrir menu", closeMenu:"Fechar menu", generalSettings:"Definições gerais", settingsSaved:"As definições são guardadas automaticamente.", language:"Idioma", languageHint:"Idioma preferido para Schulio", appearance:"Aparência", appearanceHint:"Claro, escuro ou automático", darkMode:"Escuro", lightMode:"Claro", systemMode:"Sistema", compact:"Vista compacta", compactHint:"Menos espaço para mais conteúdo", reduced:"Reduzir animações", reducedHint:"Para uma interface mais calma", startPage:"Página inicial", startPageHint:"Esta página abre após o início de sessão.", saved:"Guardado", savedHint:"As preferências são guardadas com os teus dados Schulio.", yourMailbox:"A tua caixa de entrada", mailboxHint:"Mensagens do Schulio e da organização.", noMessages:"Ainda não tens mensagens.", new:"Nova" },
+  nl: { overview:"Overzicht", school:"School", learning:"Leren", communication:"Communicatie", account:"Account", start:"Start", grades:"Cijfers", calendar:"Agenda", tasks:"Taken", schedule:"Roosters", notes:"Notities", study:"Leercentrum", mailbox:"Postvak", settings:"Instellingen", profile:"Profiel", admin:"Beheer", overviewTitle:"Jouw overzicht", calendarTitle:"Agenda", profileTitle:"Mijn profiel", logout:"Uitloggen", openProfile:"Profiel openen", light:"Licht thema", dark:"Donker thema", openMenu:"Menu openen", closeMenu:"Menu sluiten", generalSettings:"Algemene instellingen", settingsSaved:"Je instellingen worden automatisch opgeslagen.", language:"Taal", languageHint:"Voorkeurstaal voor Schulio", appearance:"Weergave", appearanceHint:"Licht, donker of automatisch", darkMode:"Donker", lightMode:"Licht", systemMode:"Systeem", compact:"Compacte weergave", compactHint:"Minder ruimte voor meer inhoud", reduced:"Animaties verminderen", reducedHint:"Voor een rustigere interface", startPage:"Startpagina", startPageHint:"Deze pagina opent na het inloggen.", saved:"Opgeslagen", savedHint:"Voorkeuren worden samen met je Schulio-gegevens opgeslagen.", yourMailbox:"Je postvak", mailboxHint:"Berichten van Schulio en de organisatie.", noMessages:"Je hebt nog geen berichten.", new:"Nieuw" },
+  sv: { overview:"Översikt", school:"Skola", learning:"Lärande", communication:"Kommunikation", account:"Konto", start:"Start", grades:"Betyg", calendar:"Kalender", tasks:"Uppgifter", schedule:"Scheman", notes:"Anteckningar", study:"Lärcenter", mailbox:"Inkorg", settings:"Inställningar", profile:"Profil", admin:"Administration", overviewTitle:"Din översikt", calendarTitle:"Kalender", profileTitle:"Min profil", logout:"Logga ut", openProfile:"Öppna profil", light:"Ljust tema", dark:"Mörkt tema", openMenu:"Öppna meny", closeMenu:"Stäng meny", generalSettings:"Allmänna inställningar", settingsSaved:"Dina inställningar sparas automatiskt.", language:"Språk", languageHint:"Föredraget språk för Schulio", appearance:"Utseende", appearanceHint:"Ljust, mörkt eller automatiskt", darkMode:"Mörkt", lightMode:"Ljust", systemMode:"System", compact:"Kompakt vy", compactHint:"Mindre mellanrum för mer innehåll", reduced:"Minska animationer", reducedHint:"För ett lugnare gränssnitt", startPage:"Startsida", startPageHint:"Den här sidan öppnas efter inloggning.", saved:"Sparat", savedHint:"Språk och visningsinställningar sparas med dina Schulio-data.", yourMailbox:"Din inkorg", mailboxHint:"Meddelanden från Schulio och organisationen.", noMessages:"Du har inga meddelanden ännu.", new:"Ny" },
+  ar: { overview:"نظرة عامة", school:"المدرسة", learning:"التعلم", communication:"التواصل", account:"الحساب", start:"الرئيسية", grades:"الدرجات", calendar:"التقويم", tasks:"المهام", schedule:"الجداول", notes:"الملاحظات", study:"مركز التعلم", mailbox:"البريد", settings:"الإعدادات", profile:"الملف الشخصي", admin:"الإدارة", overviewTitle:"نظرتك العامة", calendarTitle:"التقويم", profileTitle:"ملفي الشخصي", logout:"تسجيل الخروج", openProfile:"فتح الملف الشخصي", light:"الوضع الفاتح", dark:"الوضع الداكن", openMenu:"فتح القائمة", closeMenu:"إغلاق القائمة", generalSettings:"الإعدادات العامة", settingsSaved:"يتم حفظ إعداداتك تلقائياً.", language:"اللغة", languageHint:"اللغة المفضلة في Schulio", appearance:"المظهر", appearanceHint:"فاتح أو داكن أو تلقائي", darkMode:"داكن", lightMode:"فاتح", systemMode:"النظام", compact:"عرض مضغوط", compactHint:"مسافات أقل لمحتوى أكثر", reduced:"تقليل الحركات", reducedHint:"لواجهة أكثر هدوءاً", startPage:"الصفحة الرئيسية", startPageHint:"تفتح هذه الصفحة بعد تسجيل الدخول.", saved:"تم الحفظ", savedHint:"يتم حفظ تفضيلاتك مع بيانات Schulio.", yourMailbox:"بريدك", mailboxHint:"رسائل من Schulio والتنظيم.", noMessages:"لا توجد رسائل بعد.", new:"جديد" }
+};
+const tr = (lang, key) => (I18N[lang] || I18N.de)[key] || I18N.de[key] || key;
 
 function MainApp({ username, role, dark, setDark, onLogout }) {
   const [tab, setTab] = useState("dashboard");
@@ -469,6 +495,31 @@ function MainApp({ username, role, dark, setDark, onLogout }) {
   const tasksToday = tasks.filter(t => t.due === todayISO() && t.status !== "erledigt");
   const openTasks = tasks.filter(t => t.status !== "erledigt").sort((a,b)=>a.due.localeCompare(b.due));
   const unreadMail = mailbox.filter(m => !m.readAt).length;
+  const language = settings.language || "de";
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
+    if (loading) return;
+    let stopped = false;
+    const refreshMailbox = async () => {
+      try {
+        const latest = await fetchMailbox();
+        if (!stopped) {
+          setMailbox(prev => {
+            const a = JSON.stringify(prev);
+            const b = JSON.stringify(latest);
+            return a === b ? prev : latest;
+          });
+        }
+      } catch {}
+    };
+    refreshMailbox();
+    const timer = setInterval(refreshMailbox, 1000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, [loading, username]);
 
   if (loadError) {
     return (
@@ -494,9 +545,9 @@ function MainApp({ username, role, dark, setDark, onLogout }) {
 
   return (
     <div className={`sapp${settings.compactMode ? " compact-mode" : ""}${settings.reducedMotion ? " reduced-motion" : ""}`} data-theme={dark ? "dark" : "light"}>
-      <Sidebar tab={tab} setTab={setTab} dark={dark} setDark={setDark} mobileNav={mobileNav} setMobileNav={setMobileNav} isAdmin={role === "admin"} unreadMail={unreadMail} />
+      <Sidebar language={language} tab={tab} setTab={setTab} dark={dark} setDark={setDark} mobileNav={mobileNav} setMobileNav={setMobileNav} isAdmin={role === "admin"} unreadMail={unreadMail} />
       <div className="main">
-        <Topbar tab={tab} profile={profile} setTab={setTab} username={username} onLogout={onLogout} />
+        <Topbar language={language} tab={tab} profile={profile} setTab={setTab} username={username} onLogout={onLogout} />
         <div className="content">
           {tab === "dashboard" && (
             <Dashboard subjects={subjects} overallAvg={overallAvg} subjectAverages={subjectAverages}
@@ -521,10 +572,10 @@ function MainApp({ username, role, dark, setDark, onLogout }) {
             <StudyHub flashcards={flashcards} setFlashcards={setFlashcards} subjects={subjects} subjectById={subjectById} />
           )}
           {tab === "mailbox" && (
-            <Mailbox messages={mailbox} setMessages={setMailbox} />
+            <Mailbox language={language} messages={mailbox} setMessages={setMailbox} />
           )}
           {tab === "settings" && (
-            <SettingsPage settings={settings} setSettings={setSettings} dark={dark} setDark={setDark} />
+            <SettingsPage language={language} settings={settings} setSettings={setSettings} dark={dark} setDark={setDark} />
           )}
           {tab === "admin" && role === "admin" && (
             <AdminPanel />
@@ -538,26 +589,26 @@ function MainApp({ username, role, dark, setDark, onLogout }) {
   );
 }
 
-function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav, isAdmin, unreadMail }) {
+function Sidebar({ language, tab, setTab, dark, setDark, mobileNav, setMobileNav, isAdmin, unreadMail }) {
   const groups = [
-    { title: "Übersicht", items: [{ id: "dashboard", icon: LayoutGrid, label: "Start" }] },
-    { title: "Schule", items: [
-      { id: "grades", icon: GraduationCap, label: "Noten" },
-      { id: "calendar", icon: CalendarDays, label: "Termine" },
-      { id: "tasks", icon: ListChecks, label: "Aufgaben" },
-      { id: "schedule", icon: Clock, label: "Stundenpläne" },
+    { title: tr(language,"overview"), items: [{ id: "dashboard", icon: LayoutGrid, label: tr(language,"start") }] },
+    { title: tr(language,"school"), items: [
+      { id: "grades", icon: GraduationCap, label: tr(language,"grades") },
+      { id: "calendar", icon: CalendarDays, label: tr(language,"calendar") },
+      { id: "tasks", icon: ListChecks, label: tr(language,"tasks") },
+      { id: "schedule", icon: Clock, label: tr(language,"schedule") },
     ] },
-    { title: "Lernen", items: [
-      { id: "notes", icon: StickyNote, label: "Notizen" },
-      { id: "study", icon: Timer, label: "Lerncenter" },
+    { title: tr(language,"learning"), items: [
+      { id: "notes", icon: StickyNote, label: tr(language,"notes") },
+      { id: "study", icon: Timer, label: tr(language,"study") },
     ] },
-    { title: "Kommunikation", items: [
-      { id: "mailbox", icon: Mail, label: "MailBox", badge: unreadMail },
+    { title: tr(language,"communication"), items: [
+      { id: "mailbox", icon: Mail, label: tr(language,"mailbox"), badge: unreadMail },
     ] },
-    { title: "Konto", items: [
-      { id: "settings", icon: SettingsIcon, label: "Einstellungen" },
-      { id: "profile", icon: UserCircle, label: "Profil" },
-      ...(isAdmin ? [{ id: "admin", icon: ShieldCheck, label: "Administration" }] : []),
+    { title: tr(language,"account"), items: [
+      { id: "settings", icon: SettingsIcon, label: tr(language,"settings") },
+      { id: "profile", icon: UserCircle, label: tr(language,"profile") },
+      ...(isAdmin ? [{ id: "admin", icon: ShieldCheck, label: tr(language,"admin") }] : []),
     ] },
   ];
   const navigate = (id) => { setTab(id); setMobileNav(false); };
@@ -573,13 +624,13 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav, isAdmin,
 
   return (
     <>
-      {!mobileNav && <button className="mobile-menu-btn" onClick={() => setMobileNav(true)} aria-label="Menü öffnen"><Menu size={20}/></button>}
+      {!mobileNav && <button className="mobile-menu-btn" onClick={() => setMobileNav(true)} aria-label={tr(language,"openMenu")}><Menu size={20}/></button>}
       {mobileNav && <div className="mobile-backdrop" onClick={() => setMobileNav(false)} />}
       <aside className={"sidebar " + (mobileNav ? "mobile-open" : "")}>
         <div className="sidebar-head">
           <img className="logo" src={schulioLogo} alt="Schulio Logo" />
           <span className="sidebar-title">Schulio</span>
-          <button className="sidebar-close" onClick={() => setMobileNav(false)} aria-label="Menü schließen"><X size={20}/></button>
+          <button className="sidebar-close" onClick={() => setMobileNav(false)} aria-label={tr(language,"closeMenu")}><X size={20}/></button>
         </div>
         <nav className="sidebar-nav">
           {groups.map((group) => (
@@ -594,15 +645,15 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav, isAdmin,
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button className="navitem" onClick={() => setDark((d) => !d)} title="Theme wechseln">{dark ? <Sun size={19}/> : <Moon size={19}/>}<span className="navlabel">{dark ? "Helles Design" : "Dunkles Design"}</span></button>
+          <button className="navitem" onClick={() => setDark((d) => !d)} title={dark ? tr(language,"light") : tr(language,"dark")}>{dark ? <Sun size={19}/> : <Moon size={19}/>}<span className="navlabel">{dark ? tr(language,"light") : tr(language,"dark")}</span></button>
         </div>
       </aside>
     </>
   );
 }
 
-function Topbar({ tab, profile, setTab, username, onLogout }) {
-  const titles = { dashboard:"Dein Überblick", grades:"Noten", calendar:"Termine & Kalender", tasks:"Aufgaben", notes:"Notizen", study:"Lerncenter", schedule:"Stundenpläne", mailbox:"MailBox", settings:"Einstellungen", admin:"Administration", profile:"Mein Profil" };
+function Topbar({ language, tab, profile, setTab, username, onLogout }) {
+  const titles = { dashboard:tr(language,"overviewTitle"), grades:tr(language,"grades"), calendar:tr(language,"calendarTitle"), tasks:tr(language,"tasks"), notes:tr(language,"notes"), study:tr(language,"study"), schedule:tr(language,"schedule"), mailbox:tr(language,"mailbox"), settings:tr(language,"settings"), admin:tr(language,"admin"), profile:tr(language,"profileTitle") };
   const now = new Date();
   const weekday = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"][now.getDay()];
   const initials = (profile.name || "S").trim().slice(0,1).toUpperCase();
@@ -613,11 +664,11 @@ function Topbar({ tab, profile, setTab, username, onLogout }) {
         <div style={{fontSize:12,color:"var(--text-muted)",marginTop:2}}>{weekday}, {now.getDate()}. {MONTHS[now.getMonth()]} {now.getFullYear()}</div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <button className="profile-mini" onClick={() => setTab("profile")} title="Profil öffnen">
+        <button className="profile-mini" onClick={() => setTab("profile")} title={tr(language,"openProfile")}>
           {profile.avatar ? <img src={profile.avatar} alt="Profilbild"/> : <span>{initials}</span>}
           <span className="profile-mini-name">{profile.name || username}</span>
         </button>
-        <button className="iconbtn" onClick={onLogout} title="Abmelden"><LogOut size={18}/></button>
+        <button className="iconbtn" onClick={onLogout} title={tr(language,"logout")}><LogOut size={18}/></button>
       </div>
     </div>
   );
@@ -1062,7 +1113,7 @@ function Profile({ profile, setProfile, username, onLogout }) {
 }
 
 
-function Mailbox({ messages, setMessages }) {
+function Mailbox({ language, messages, setMessages }) {
   const [selected, setSelected] = useState(null);
   const open = async (msg) => {
     setSelected(msg);
@@ -1074,20 +1125,20 @@ function Mailbox({ messages, setMessages }) {
   return <div>
     <div className="card" style={{marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
       <div className="stat-icon"><Mail size={18}/></div>
-      <div><h3 style={{margin:0}}>Deine MailBox</h3><div style={{fontSize:12,color:"var(--text-muted)",marginTop:3}}>Mitteilungen von Schulio und der Organisation.</div></div>
+      <div><h3 style={{margin:0}}>{tr(language,"yourMailbox")}</h3><div style={{fontSize:12,color:"var(--text-muted)",marginTop:3}}>{tr(language,"mailboxHint")}</div></div>
     </div>
-    {messages.length === 0 ? <div className="empty-state">Du hast noch keine Nachrichten.</div> : <div style={{display:"grid",gap:8}}>
+    {messages.length === 0 ? <div className="empty-state">{tr(language,"noMessages")}</div> : <div style={{display:"grid",gap:8}}>
       {messages.map((m) => <button key={m.id} onClick={() => open(m)} className="card" style={{textAlign:"left",border:"1px solid var(--border)",cursor:"pointer",display:"grid",gridTemplateColumns:"40px 1fr auto",gap:12,alignItems:"center"}}>
         <div className="stat-icon"><Mail size={16}/></div>
         <div style={{minWidth:0}}><div style={{fontWeight:m.readAt?600:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject}</div><div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>{m.sender} · {new Date(m.createdAt).toLocaleDateString("de-DE")}</div></div>
-        {!m.readAt && <span className="pill" style={{background:"var(--primary-soft)",color:"var(--primary)"}}>Neu</span>}
+        {!m.readAt && <span className="pill" style={{background:"var(--primary-soft)",color:"var(--primary)"}}>{tr(language,"new")}</span>}
       </button>)}
     </div>}
     {selected && <Modal onClose={() => setSelected(null)} title={selected.subject}><div style={{fontSize:12,color:"var(--text-muted)",marginBottom:14}}>Von {selected.sender} · {new Date(selected.createdAt).toLocaleString("de-DE")}</div><div style={{whiteSpace:"pre-wrap",lineHeight:1.65,fontSize:14}}>{selected.body}</div></Modal>}
   </div>;
 }
 
-function SettingsPage({ settings, setSettings, dark, setDark }) {
+function SettingsPage({ language, settings, setSettings, dark, setDark }) {
   const update = (key, value) => {
     setSettings((s) => ({ ...s, [key]: value }));
     if (key === "appearance") {
@@ -1098,15 +1149,15 @@ function SettingsPage({ settings, setSettings, dark, setDark }) {
   };
   return <div>
     <div className="profile-section" style={{marginBottom:16}}>
-      <h3 style={{margin:"0 0 4px",display:"flex",alignItems:"center",gap:8}}><SettingsIcon size={18}/> Allgemeine Einstellungen</h3>
-      <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:18}}>Deine Einstellungen werden automatisch in deinem Schulio-Konto gespeichert.</div>
-      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Languages size={18}/><div><b>Sprache</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Bevorzugte Sprache für Schulio</div></div></div><select value={settings.language} onChange={e=>update("language",e.target.value)} style={{width:150}}><option value="de">Deutsch</option><option value="en">English</option></select></div>
-      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Palette size={18}/><div><b>Darstellung</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Hell, dunkel oder automatisch</div></div></div><select value={settings.appearance} onChange={e=>update("appearance",e.target.value)} style={{width:150}}><option value="dark">Dunkel</option><option value="light">Hell</option><option value="system">System</option></select></div>
-      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Monitor size={18}/><div><b>Kompakte Ansicht</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Weniger Abstand für mehr Inhalt</div></div></div><input type="checkbox" checked={settings.compactMode} onChange={e=>update("compactMode",e.target.checked)} style={{width:20,accentColor:"var(--primary)"}}/></div>
-      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Zap size={18}/><div><b>Animationen reduzieren</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Für eine ruhigere Bedienung</div></div></div><input type="checkbox" checked={settings.reducedMotion} onChange={e=>update("reducedMotion",e.target.checked)} style={{width:20,accentColor:"var(--primary)"}}/></div>
-      <div className="rowline"><div><b>Startseite</b><div style={{fontSize:11,color:"var(--text-muted)"}}>Diese Seite wird nach dem Login geöffnet.</div></div><select value={settings.startPage} onChange={e=>update("startPage",e.target.value)} style={{width:180}}><option value="dashboard">Start</option><option value="grades">Noten</option><option value="calendar">Termine</option><option value="tasks">Aufgaben</option><option value="schedule">Stundenpläne</option><option value="mailbox">MailBox</option><option value="profile">Profil</option></select></div>
+      <h3 style={{margin:"0 0 4px",display:"flex",alignItems:"center",gap:8}}><SettingsIcon size={18}/> {tr(language,"generalSettings")}</h3>
+      <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:18}}>{tr(language,"settingsSaved")}</div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Languages size={18}/><div><b>{tr(language,"language")}</b><div style={{fontSize:11,color:"var(--text-muted)"}}>{tr(language,"languageHint")}</div></div></div><select value={settings.language} onChange={e=>update("language",e.target.value)} style={{width:170}}>{LANGUAGES.map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Palette size={18}/><div><b>{tr(language,"appearance")}</b><div style={{fontSize:11,color:"var(--text-muted)"}}>{tr(language,"appearanceHint")}</div></div></div><select value={settings.appearance} onChange={e=>update("appearance",e.target.value)} style={{width:150}}><option value="dark">{tr(language,"darkMode")}</option><option value="light">{tr(language,"lightMode")}</option><option value="system">{tr(language,"systemMode")}</option></select></div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Monitor size={18}/><div><b>{tr(language,"compact")}</b><div style={{fontSize:11,color:"var(--text-muted)"}}>{tr(language,"compactHint")}</div></div></div><input type="checkbox" checked={settings.compactMode} onChange={e=>update("compactMode",e.target.checked)} style={{width:20,accentColor:"var(--primary)"}}/></div>
+      <div className="rowline"><div style={{display:"flex",gap:10,alignItems:"center"}}><Zap size={18}/><div><b>{tr(language,"reduced")}</b><div style={{fontSize:11,color:"var(--text-muted)"}}>{tr(language,"reducedHint")}</div></div></div><input type="checkbox" checked={settings.reducedMotion} onChange={e=>update("reducedMotion",e.target.checked)} style={{width:20,accentColor:"var(--primary)"}}/></div>
+      <div className="rowline"><div><b>{tr(language,"startPage")}</b><div style={{fontSize:11,color:"var(--text-muted)"}}>{tr(language,"startPageHint")}</div></div><select value={settings.startPage} onChange={e=>update("startPage",e.target.value)} style={{width:180}}><option value="dashboard">{tr(language,"start")}</option><option value="grades">{tr(language,"grades")}</option><option value="calendar">{tr(language,"calendar")}</option><option value="tasks">{tr(language,"tasks")}</option><option value="schedule">{tr(language,"schedule")}</option><option value="mailbox">{tr(language,"mailbox")}</option><option value="profile">{tr(language,"profile")}</option></select></div>
     </div>
-    <div className="profile-section"><h3 style={{margin:"0 0 4px"}}>Gespeichert</h3><div style={{fontSize:12,color:"var(--text-muted)"}}>Sprache, Darstellung und persönliche Anzeigeoptionen werden zusammen mit deinen Schulio-Daten auf deinem Konto gespeichert.</div></div>
+    <div className="profile-section"><h3 style={{margin:"0 0 4px"}}>{tr(language,"saved")}</h3><div style={{fontSize:12,color:"var(--text-muted)"}}>{tr(language,"savedHint")}</div></div>
   </div>;
 }
 
