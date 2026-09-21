@@ -390,7 +390,8 @@ function MainApp({ username, dark, setDark, onLogout }) {
   const events = data?.events || [];
   const tasks = data?.tasks || [];
   const notes = data?.notes || [];
-  const schedule = data?.schedule || [];\n  const flashcards = data?.flashcards || [];
+  const schedule = data?.schedule || [];
+  const flashcards = data?.flashcards || [];
 
   const set = (key) => (fn) => setDataRaw((d) => d ? ({ ...d, [key]: typeof fn === "function" ? fn(d[key] ?? []) : fn }) : d);
   const setSubjects = set("subjects"), setGrades = set("grades"), setEvents = set("events"), setTasks = set("tasks"), setNotes = set("notes"), setSchedule = set("schedule"), setFlashcards = set("flashcards");
