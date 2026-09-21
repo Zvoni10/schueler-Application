@@ -453,7 +453,7 @@ function MainApp({ username, dark, setDark, onLogout }) {
         <div className="content">
           {tab === "dashboard" && (
             <Dashboard subjects={subjects} overallAvg={overallAvg} subjectAverages={subjectAverages}
-              todaysLessons={todaysLessons} upcomingEvents={upcomingEvents} tasksToday={tasksToday} subjectById={subjectById} />
+              todaysLessons={todaysLessons} upcomingEvents={upcomingEvents} tasksToday={tasksToday} openTasks={openTasks} subjectById={subjectById} profile={profile} setTab={setTab} />
           )}
           {tab === "grades" && (
             <Grades subjects={subjects} setSubjects={setSubjects} grades={grades} setGrades={setGrades} subjectAverages={subjectAverages} overallAvg={overallAvg} />
@@ -469,6 +469,9 @@ function MainApp({ username, dark, setDark, onLogout }) {
           )}
           {tab === "schedule" && (
             <Schedule schedule={schedule} setSchedule={setSchedule} subjects={subjects} subjectById={subjectById} />
+          )}
+          {tab === "study" && (
+            <StudyHub flashcards={flashcards} setFlashcards={setFlashcards} subjects={subjects} subjectById={subjectById} />
           )}
           {tab === "profile" && (
             <Profile profile={profile} setProfile={setProfile} username={username} onLogout={onLogout} />
@@ -487,6 +490,7 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
     { id: "tasks", icon: ListChecks, label: "Aufgaben" },
     { id: "notes", icon: StickyNote, label: "Notizen" },
     { id: "schedule", icon: Clock, label: "Plan" },
+    { id: "study", icon: Timer, label: "Lernen" },
   ];
   const navigate = (id) => { setTab(id); setMobileNav(false); };
 
