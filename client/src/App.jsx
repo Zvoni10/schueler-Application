@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import schulioLogo from "./assets/schulio-logo.png";
 import {
   LayoutGrid, GraduationCap, CalendarDays, ListChecks, StickyNote,
   Clock, Plus, X, Trash2, Pencil, Star, Moon, Sun, ChevronLeft,
@@ -289,7 +290,7 @@ function AuthScreen({ dark, setDark, onLogin }) {
       <div style={{ margin: "auto", width: 380, maxWidth: "100%" }}>
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <img src="/logo.png" alt="Schulio" style={{ width: 76, height: 76, objectFit: "contain" }} />
+            <img src={schulioLogo} alt="Schulio" style={{ width: 76, height: 76, objectFit: "contain" }} />
           </div>
           <h2 style={{ textAlign: "center", margin: "0 0 4px", fontSize: 20 }}>
             {mode === "login" ? "Anmelden" : "Konto erstellen"}
@@ -537,7 +538,7 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
       {mobileNav && <div className="mobile-backdrop" onClick={() => setMobileNav(false)} />}
       <aside className={"sidebar " + (mobileNav ? "mobile-open" : "")}>
         <div className="sidebar-head">
-          <img className="logo" src="/logo.png" alt="Schulio Logo" />
+          <img className="logo" src={schulioLogo} alt="Schulio Logo" />
           <span className="sidebar-title">Schulio</span>
           <button className="sidebar-close" onClick={() => setMobileNav(false)} aria-label="Menü schließen"><X size={20}/></button>
         </div>
