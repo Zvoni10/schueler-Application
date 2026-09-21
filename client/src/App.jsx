@@ -119,33 +119,36 @@ export default function App() {
 
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+    html, body, #root { margin:0; min-height:100%; width:100%; }
     * { box-sizing: border-box; }
-    .sapp { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 640px; border-radius: 16px; overflow: hidden; display: flex; }
+    .sapp { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height:100vh; height:100vh; width:100%; border-radius:0; overflow:hidden; display:flex; }
     .sapp h1, .sapp h2, .sapp h3, .sapp .disp { font-family: 'Space Grotesk', sans-serif; }
     .sapp[data-theme='light'] {
       --bg:#F4F5FA; --surface:#FFFFFF; --surface-alt:#EEF0FA; --border:#E2E4F0; --text:#14151F; --text-muted:#6B6F85;
-      --primary:#3A5BFF; --primary-soft:#E8ECFF; --accent:#FF6B4A; --success:#1FAE6E; --warning:#F5A623; --danger:#E5484D;
+      --primary:#147BEF; --primary-soft:#E8F3FF; --accent:#1FC7B5; --success:#20C997; --warning:#F5A623; --danger:#E5484D;
     }
     .sapp[data-theme='dark'] {
       --bg:#101018; --surface:#181A26; --surface-alt:#1F2233; --border:#2A2D40; --text:#F2F2F7; --text-muted:#9497AE;
-      --primary:#6E85FF; --primary-soft:#242A4A; --accent:#FF8266; --success:#35D28A; --warning:#F7B84B; --danger:#F26A6E;
+      --primary:#1688F7; --primary-soft:#12304D; --accent:#24D7B8; --success:#35D28A; --warning:#F7B84B; --danger:#F26A6E;
     }
-    .sidebar { width: 76px; background: var(--surface); border-right: 1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding: 18px 0; gap:6px; flex-shrink:0; }
-    .sidebar .logo { width:36px; height:36px; border-radius:10px; background:var(--primary); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-family:'Space Grotesk'; flex-shrink:0; }
-    .sidebar-head { display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
-    .sidebar-title, .sidebar-close { display:none; }
-    .sidebar-nav, .sidebar-foot { display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; }
-    .sidebar-foot { margin-top:auto; }
-    .navitem { width:60px; padding:8px 0 6px; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:var(--text-muted); cursor:pointer; border:none; background:transparent; transition:.15s; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+    .sidebar { width:230px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:18px 12px; gap:8px; flex-shrink:0; }
+    .sidebar .logo { width:44px; height:44px; border-radius:13px; object-fit:cover; box-shadow:0 8px 18px rgba(20,123,239,.18); flex-shrink:0; }
+    .sidebar-head { display:flex; align-items:center; gap:10px; padding:2px 8px 16px; margin-bottom:4px; border-bottom:1px solid var(--border); }
+    .sidebar-title { display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; letter-spacing:-.4px; }
+    .sidebar-close { display:none; }
+    .sidebar-nav, .sidebar-foot { display:flex; flex-direction:column; align-items:stretch; gap:3px; width:100%; }
+    .sidebar-foot { margin-top:auto; padding-top:10px; border-top:1px solid var(--border); }
+    .navgroup-title { padding:10px 12px 5px; font-size:10px; font-weight:800; letter-spacing:.08em; color:var(--text-muted); text-transform:uppercase; }
+    .navitem { width:100%; min-height:42px; padding:0 12px; border-radius:11px; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:11px; color:var(--text-muted); cursor:pointer; border:none; background:transparent; transition:.15s; font-family:inherit; -webkit-tap-highlight-color:transparent; text-align:left; }
     .navitem:hover { background:var(--surface-alt); color:var(--text); }
     .navitem.active { background:var(--primary-soft); color:var(--primary); }
-    .navitem .navlabel { font-size:10px; font-weight:600; line-height:1.1; }
+    .navitem .navlabel { font-size:13px; font-weight:600; line-height:1.1; }
     .navbtn { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); cursor:pointer; border:none; background:transparent; transition:.15s; }
     .navbtn:hover { background:var(--surface-alt); color:var(--text); }
     .navbtn.active { background:var(--primary-soft); color:var(--primary); }
-    .main { flex:1; display:flex; flex-direction:column; min-width:0; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 28px; border-bottom:1px solid var(--border); }
-    .content { padding:24px 28px; overflow-y:auto; max-height:760px; }
+    .main { flex:1; display:flex; flex-direction:column; min-width:0; min-height:0; }
+    .topbar { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:16px 28px; border-bottom:1px solid var(--border); }
+    .content { flex:1; min-height:0; padding:24px 28px 34px; overflow-y:auto; max-height:none; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
     .btn { display:inline-flex; align-items:center; gap:6px; background:var(--primary); color:white; border:none; padding:9px 14px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; }
     .btn.secondary { background:var(--surface-alt); color:var(--text); }
@@ -185,16 +188,18 @@ export default function App() {
     .kbd{font-size:10px;padding:3px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;background:var(--surface-alt);color:var(--text-muted)}
     @media(max-width:760px){
       html,body{-webkit-text-size-adjust:100%}
-      .sapp{min-height:100vh;min-height:100dvh;border-radius:0;width:100%;overflow:visible}
-      .sidebar{position:fixed;z-index:70;left:0;top:0;bottom:0;width:min(290px,84vw);transform:translateX(-105%);transition:transform .22s ease,visibility 0s linear .22s;align-items:stretch;justify-content:flex-start;gap:0;overflow-y:auto;overscroll-behavior:contain;
+      .sapp{min-height:100vh;min-height:100dvh;height:auto;border-radius:0;width:100%;overflow:visible}
+      .sidebar{position:fixed;z-index:70;left:0;top:0;bottom:0;width:min(310px,88vw);transform:translateX(-105%);transition:transform .22s ease,visibility 0s linear .22s;align-items:stretch;justify-content:flex-start;gap:0;overflow-y:auto;overscroll-behavior:contain;
         padding:calc(env(safe-area-inset-top,0px) + 14px) 12px calc(env(safe-area-inset-bottom,0px) + 14px);box-shadow:0 12px 40px rgba(0,0,0,.25);visibility:hidden}
       .sidebar.mobile-open{transform:translateX(0);visibility:visible;transition:transform .22s ease,visibility 0s}
-      .sidebar-head{justify-content:flex-start;gap:12px;padding:4px 6px 14px;margin-bottom:8px;border-bottom:1px solid var(--border)}
-      .sidebar-title{display:block;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;flex:1}
+      .sidebar-head{justify-content:flex-start;gap:12px;padding:4px 6px 14px;margin-bottom:4px;border-bottom:1px solid var(--border)}
+      .sidebar-title{display:block;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:19px;flex:1}
+      .sidebar .logo{width:42px;height:42px}
       .sidebar-close{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:none;border-radius:10px;background:var(--surface-alt);color:var(--text);cursor:pointer}
-      .sidebar-nav{align-items:stretch;gap:4px}
-      .sidebar-foot{align-items:stretch;gap:4px;padding-top:12px;margin-top:auto;border-top:1px solid var(--border)}
-      .navitem{width:100%;flex-direction:row;justify-content:flex-start;gap:14px;min-height:50px;padding:0 16px;border-radius:12px;text-align:left}
+      .sidebar-nav{align-items:stretch;gap:2px}
+      .sidebar-foot{align-items:stretch;gap:3px;padding-top:12px;margin-top:auto;border-top:1px solid var(--border)}
+      .navgroup-title{padding:11px 16px 5px;font-size:10px}
+      .navitem{width:100%;flex-direction:row;justify-content:flex-start;gap:14px;min-height:48px;padding:0 16px;border-radius:12px;text-align:left}
       .navitem .navlabel{font-size:16px;font-weight:500;line-height:1.2}
       .navitem.active .navlabel{font-weight:600}
       .mobile-menu-btn{display:flex;position:fixed;z-index:45;top:calc(env(safe-area-inset-top,0px) + 12px);left:12px;width:42px;height:42px;padding:0;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,0,0,.08);cursor:pointer}
@@ -219,6 +224,8 @@ export default function App() {
       /* Dialoge als "Bottom Sheet" von unten */
       .modal-overlay{align-items:flex-end!important}
       .modal-content{width:100%!important;max-width:none!important;max-height:90vh!important;max-height:90dvh!important;border-radius:20px 20px 0 0!important;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important}
+      .calendar-add-label{display:none}
+      .calendar-add-btn{width:42px;height:42px;padding:0;justify-content:center;border-radius:12px}
     }
     .topbar{backdrop-filter:blur(12px)}\n    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--primary-soft);outline-offset:2px}\n    @media(max-width:480px){
       .content{padding-left:10px;padding-right:10px}
@@ -282,7 +289,7 @@ function AuthScreen({ dark, setDark, onLogin }) {
       <div style={{ margin: "auto", width: 380, maxWidth: "100%" }}>
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontFamily: "'Space Grotesk'" }}>S</div>
+            <img src="/logo.png" alt="Schulio" style={{ width: 76, height: 76, objectFit: "contain" }} />
           </div>
           <h2 style={{ textAlign: "center", margin: "0 0 4px", fontSize: 20 }}>
             {mode === "login" ? "Anmelden" : "Konto erstellen"}
@@ -360,7 +367,11 @@ function MainApp({ username, dark, setDark, onLogout }) {
       try {
         const [d, p] = await Promise.all([fetchData(), fetchProfile()]);
         if (cancelled) return;
-        setDataRaw(d);
+        const migrated = { ...d };
+        if (!Array.isArray(migrated.scheduleBooks) || migrated.scheduleBooks.length === 0) {
+          migrated.scheduleBooks = [{ id: "schedule-main", name: "Mein Stundenplan", icon: "📚", color: "#147BEF", schedule: Array.isArray(migrated.schedule) ? migrated.schedule : [] }];
+        }
+        setDataRaw(migrated);
         setProfileRaw(p);
       } catch (err) {
         // Wichtig: NICHT mit leeren Daten weitermachen, sonst würden die
@@ -390,11 +401,24 @@ function MainApp({ username, dark, setDark, onLogout }) {
   const events = data?.events || [];
   const tasks = data?.tasks || [];
   const notes = data?.notes || [];
-  const schedule = data?.schedule || [];
+  const scheduleBooks = data?.scheduleBooks || [{ id: "schedule-main", name: "Mein Stundenplan", icon: "📚", color: "#147BEF", schedule: data?.schedule || [] }];
+  const [activeScheduleId, setActiveScheduleId] = useState("schedule-main");
+  const activeSchedule = scheduleBooks.find((book) => book.id === activeScheduleId) || scheduleBooks[0];
+  const schedule = activeSchedule?.schedule || [];
   const flashcards = data?.flashcards || [];
 
+  useEffect(() => {
+    if (scheduleBooks.length && !scheduleBooks.some((book) => book.id === activeScheduleId)) setActiveScheduleId(scheduleBooks[0].id);
+  }, [scheduleBooks, activeScheduleId]);
+
   const set = (key) => (fn) => setDataRaw((d) => d ? ({ ...d, [key]: typeof fn === "function" ? fn(d[key] ?? []) : fn }) : d);
-  const setSubjects = set("subjects"), setGrades = set("grades"), setEvents = set("events"), setTasks = set("tasks"), setNotes = set("notes"), setSchedule = set("schedule"), setFlashcards = set("flashcards");
+  const setSubjects = set("subjects"), setGrades = set("grades"), setEvents = set("events"), setTasks = set("tasks"), setNotes = set("notes"), setFlashcards = set("flashcards");
+  const setScheduleBooks = (fn) => setDataRaw((d) => {
+    if (!d) return d;
+    const current = d.scheduleBooks || scheduleBooks;
+    const next = typeof fn === "function" ? fn(current) : fn;
+    return { ...d, scheduleBooks: next, schedule: next[0]?.schedule || [] };
+  });
   const setProfile = (fn) => setProfileRaw((p) => (typeof fn === "function" ? fn(p) : fn));
 
   const subjectById = (id) => subjects.find((s) => s.id === id);
@@ -468,7 +492,7 @@ function MainApp({ username, dark, setDark, onLogout }) {
             <Notes notes={notes} setNotes={setNotes} subjects={subjects} subjectById={subjectById} />
           )}
           {tab === "schedule" && (
-            <Schedule schedule={schedule} setSchedule={setSchedule} subjects={subjects} subjectById={subjectById} />
+            <Schedule scheduleBooks={scheduleBooks} setScheduleBooks={setScheduleBooks} activeScheduleId={activeSchedule?.id} setActiveScheduleId={setActiveScheduleId} subjects={subjects} subjectById={subjectById} />
           )}
           {tab === "study" && (
             <StudyHub flashcards={flashcards} setFlashcards={setFlashcards} subjects={subjects} subjectById={subjectById} />
@@ -483,18 +507,21 @@ function MainApp({ username, dark, setDark, onLogout }) {
 }
 
 function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
-  const items = [
-    { id: "dashboard", icon: LayoutGrid, label: "Start" },
-    { id: "grades", icon: GraduationCap, label: "Noten" },
-    { id: "calendar", icon: CalendarDays, label: "Termine" },
-    { id: "tasks", icon: ListChecks, label: "Aufgaben" },
-    { id: "notes", icon: StickyNote, label: "Notizen" },
-    { id: "schedule", icon: Clock, label: "Plan" },
-    { id: "study", icon: Timer, label: "Lernen" },
+  const groups = [
+    { title: "Übersicht", items: [{ id: "dashboard", icon: LayoutGrid, label: "Start" }] },
+    { title: "Schule", items: [
+      { id: "grades", icon: GraduationCap, label: "Noten" },
+      { id: "calendar", icon: CalendarDays, label: "Termine" },
+      { id: "tasks", icon: ListChecks, label: "Aufgaben" },
+      { id: "schedule", icon: Clock, label: "Stundenpläne" },
+    ] },
+    { title: "Lernen", items: [
+      { id: "notes", icon: StickyNote, label: "Notizen" },
+      { id: "study", icon: Timer, label: "Lerncenter" },
+    ] },
   ];
   const navigate = (id) => { setTab(id); setMobileNav(false); };
 
-  // Wenn das Menü offen ist: Seite dahinter nicht scrollen, Esc schließt es.
   useEffect(() => {
     if (!mobileNav) return;
     const onKey = (e) => { if (e.key === "Escape") setMobileNav(false); };
@@ -506,33 +533,29 @@ function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
 
   return (
     <>
-      {!mobileNav && (
-        <button className="mobile-menu-btn" onClick={() => setMobileNav(true)} aria-label="Menü öffnen"><Menu size={20}/></button>
-      )}
+      {!mobileNav && <button className="mobile-menu-btn" onClick={() => setMobileNav(true)} aria-label="Menü öffnen"><Menu size={20}/></button>}
       {mobileNav && <div className="mobile-backdrop" onClick={() => setMobileNav(false)} />}
       <aside className={"sidebar " + (mobileNav ? "mobile-open" : "")}>
         <div className="sidebar-head">
-          <div className="logo">S</div>
-          <span className="sidebar-title">Schüler-App</span>
+          <img className="logo" src="/logo.png" alt="Schulio Logo" />
+          <span className="sidebar-title">Schulio</span>
           <button className="sidebar-close" onClick={() => setMobileNav(false)} aria-label="Menü schließen"><X size={20}/></button>
         </div>
         <nav className="sidebar-nav">
-          {items.map((it) => (
-            <button key={it.id} className={"navitem" + (tab === it.id ? " active" : "")} onClick={() => navigate(it.id)} title={it.label}>
-              <it.icon size={20}/>
-              <span className="navlabel">{it.label}</span>
-            </button>
+          {groups.map((group) => (
+            <div key={group.title}>
+              <div className="navgroup-title">{group.title}</div>
+              {group.items.map((it) => (
+                <button key={it.id} className={"navitem" + (tab === it.id ? " active" : "")} onClick={() => navigate(it.id)} title={it.label}>
+                  <it.icon size={19}/><span className="navlabel">{it.label}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button className={"navitem" + (tab === "profile" ? " active" : "")} onClick={() => navigate("profile")} title="Profil">
-            <UserCircle size={20}/>
-            <span className="navlabel">Profil</span>
-          </button>
-          <button className="navitem" onClick={() => setDark((d) => !d)} title="Theme wechseln">
-            {dark ? <Sun size={20}/> : <Moon size={20}/>}
-            <span className="navlabel">{dark ? "Hell" : "Dunkel"}</span>
-          </button>
+          <button className={"navitem" + (tab === "profile" ? " active" : "")} onClick={() => navigate("profile")} title="Profil"><UserCircle size={19}/><span className="navlabel">Profil</span></button>
+          <button className="navitem" onClick={() => setDark((d) => !d)} title="Theme wechseln">{dark ? <Sun size={19}/> : <Moon size={19}/>}<span className="navlabel">{dark ? "Helles Design" : "Dunkles Design"}</span></button>
         </div>
       </aside>
     </>
@@ -1044,7 +1067,7 @@ function CalendarView({ events, setEvents, subjects, subjectById }) {
         <div style={{ display: "flex", gap: 8 }}>
           <button className={"btn " + (view==="month"?"":"secondary")} onClick={()=>setView("month")}>Monat</button>
           <button className={"btn " + (view==="agenda"?"":"secondary")} onClick={()=>setView("agenda")}>Agenda</button>
-          <button className="btn" onClick={() => openNew()}><Plus size={14}/> Termin</button>
+          <button className="btn calendar-add-btn" onClick={() => openNew()} aria-label="Termin hinzufügen"><Plus size={16}/><span className="calendar-add-label">Termin</span></button>
         </div>
       </div>
 
@@ -1305,70 +1328,78 @@ function Notes({ notes, setNotes, subjects, subjectById }) {
   );
 }
 
-function Schedule({ schedule, setSchedule, subjects, subjectById }) {
+function Schedule({ scheduleBooks, setScheduleBooks, activeScheduleId, setActiveScheduleId, subjects, subjectById }) {
   const [showForm, setShowForm] = useState(false);
+  const [showBookForm, setShowBookForm] = useState(false);
+  const [editingBook, setEditingBook] = useState(null);
+  const [bookName, setBookName] = useState("");
+  const [bookIcon, setBookIcon] = useState("📚");
+  const [bookColor, setBookColor] = useState("#147BEF");
+  const activeBook = scheduleBooks.find((book) => book.id === activeScheduleId) || scheduleBooks[0];
   const empty = { subjectId: subjects[0]?.id || "", teacher: "", room: "", day: 0, start: "08:00", end: "08:45" };
   const [form, setForm] = useState(empty);
+  const times = Array.from(new Set((activeBook?.schedule || []).map((s) => s.start))).sort();
 
-  const times = Array.from(new Set(schedule.map((s) => s.start))).sort();
-  const add = () => { setSchedule((s) => [...s, { ...form, id: uid() }]); setForm(empty); setShowForm(false); };
-  const remove = (id) => setSchedule((s) => s.filter((x) => x.id !== id));
+  const updateActive = (updater) => {
+    setScheduleBooks((books) => books.map((book) => book.id === activeBook.id ? { ...book, schedule: typeof updater === "function" ? updater(book.schedule || []) : updater } : book));
+  };
+  const add = () => { if (!activeBook) return; updateActive((s) => [...s, { ...form, id: uid() }]); setForm(empty); setShowForm(false); };
+  const remove = (id) => updateActive((s) => s.filter((x) => x.id !== id));
 
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
-        <button className="btn" onClick={() => setShowForm(true)}><Plus size={14}/> Stunde</button>
-      </div>
-      <div className="card" style={{ overflowX: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "70px repeat(5,1fr)", gap: 6, minWidth: 640 }}>
-          <div />
-          {WEEKDAYS.slice(0,5).map((w) => <div key={w} style={{ textAlign: "center", fontWeight: 700, fontSize: 12, padding: 6 }}>{w}</div>)}
-          {times.map((time) => (
-            <React.Fragment key={time}>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", paddingTop: 10 }}>{time}</div>
-              {[0,1,2,3,4].map((day) => {
-                const lesson = schedule.find((s) => s.day === day && s.start === time);
-                const s = lesson ? subjectById(lesson.subjectId) : null;
-                return (
-                  <div key={day} style={{ minHeight: 56, borderRadius: 8, background: s ? s.color + "22" : "var(--surface-alt)", padding: 6, position: "relative" }}>
-                    {lesson && (
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.name}</div>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{lesson.room} · {lesson.teacher}</div>
-                        <button className="iconbtn" style={{ position: "absolute", top: 2, right: 2 }} onClick={() => remove(lesson.id)}><X size={11} /></button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </React.Fragment>
-          ))}
+  const openNewBook = () => { setEditingBook(null); setBookName(""); setBookIcon("📚"); setBookColor("#147BEF"); setShowBookForm(true); };
+  const openEditBook = (book) => { setEditingBook(book.id); setBookName(book.name); setBookIcon(book.icon || "📚"); setBookColor(book.color || "#147BEF"); setShowBookForm(true); };
+  const saveBook = () => {
+    if (!bookName.trim()) return;
+    if (editingBook) setScheduleBooks((books) => books.map((book) => book.id === editingBook ? { ...book, name: bookName.trim(), icon: bookIcon || "📚", color: bookColor } : book));
+    else { const id = uid(); setScheduleBooks((books) => [...books, { id, name: bookName.trim(), icon: bookIcon || "📚", color: bookColor, schedule: [] }]); setActiveScheduleId(id); }
+    setShowBookForm(false);
+  };
+  const deleteBook = (id) => {
+    if (scheduleBooks.length <= 1) return;
+    const next = scheduleBooks.find((book) => book.id !== id);
+    setScheduleBooks((books) => books.filter((book) => book.id !== id));
+    if (id === activeScheduleId && next) setActiveScheduleId(next.id);
+  };
+  const duplicateBook = (book) => {
+    const id = uid();
+    setScheduleBooks((books) => [...books, { ...book, id, name: `${book.name} – Kopie`, schedule: (book.schedule || []).map((lesson) => ({ ...lesson, id: uid() })) }]);
+    setActiveScheduleId(id);
+  };
+
+  return <div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:18}}>
+      {scheduleBooks.map((book) => <div key={book.id} className="card" onClick={() => setActiveScheduleId(book.id)} style={{cursor:"pointer",border:activeBook?.id===book.id?`2px solid ${book.color||"var(--primary)"}`:undefined,padding:0,overflow:"hidden"}}>
+        <div style={{height:64,background:`linear-gradient(135deg,${book.color||"#147BEF"},#20CDB7)`,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 14px",color:"white"}}>
+          <span style={{fontSize:30}}>{book.icon||"📚"}</span>
+          <div style={{display:"flex",gap:2}}>
+            <button className="iconbtn" style={{color:"white",background:"rgba(255,255,255,.14)"}} onClick={(e)=>{e.stopPropagation();openEditBook(book)}} title="Umbenennen"><Pencil size={14}/></button>
+            <button className="iconbtn" style={{color:"white",background:"rgba(255,255,255,.14)"}} onClick={(e)=>{e.stopPropagation();duplicateBook(book)}} title="Duplizieren"><Camera size={14}/></button>
+            {scheduleBooks.length>1&&<button className="iconbtn" style={{color:"white",background:"rgba(255,255,255,.14)"}} onClick={(e)=>{e.stopPropagation();deleteBook(book.id)}} title="Löschen"><Trash2 size={14}/></button>}
+          </div>
         </div>
-      </div>
-
-      {showForm && (
-        <Modal onClose={() => setShowForm(false)} title="Neue Unterrichtsstunde">
-          <div className="grid2">
-            <div><label className="fl">Fach</label>
-              <select value={form.subjectId} onChange={(e)=>setForm({...form,subjectId:e.target.value})}>
-                {subjects.map((s)=> <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div><label className="fl">Wochentag</label>
-              <select value={form.day} onChange={(e)=>setForm({...form,day:Number(e.target.value)})}>
-                {WEEKDAYS.slice(0,5).map((w,i)=> <option key={w} value={i}>{w}</option>)}
-              </select>
-            </div>
-            <div><label className="fl">Lehrer</label><input value={form.teacher} onChange={(e)=>setForm({...form,teacher:e.target.value})} /></div>
-            <div><label className="fl">Raum</label><input value={form.room} onChange={(e)=>setForm({...form,room:e.target.value})} /></div>
-            <div><label className="fl">Start</label><input type="time" value={form.start} onChange={(e)=>setForm({...form,start:e.target.value})} /></div>
-            <div><label className="fl">Ende</label><input type="time" value={form.end} onChange={(e)=>setForm({...form,end:e.target.value})} /></div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-            <button className="btn" onClick={add}>Speichern</button>
-          </div>
-        </Modal>
-      )}
+        <div style={{padding:"12px 14px"}}><div style={{fontWeight:700,fontSize:14}}>{book.name}</div><div style={{color:"var(--text-muted)",fontSize:11,marginTop:3}}>{(book.schedule||[]).length} Unterrichtsstunden</div></div>
+      </div>)}
+      <button className="card" onClick={openNewBook} style={{border:"1px dashed var(--border)",background:"var(--surface-alt)",minHeight:124,cursor:"pointer",color:"var(--text-muted)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6}}><Plus size={22}/><span style={{fontWeight:700,fontSize:13}}>Stundenplan hinzufügen</span><span style={{fontSize:11,textAlign:"center"}}>z. B. Schule, neues Schuljahr oder Prüfungsplan</span></button>
     </div>
-  );
+
+    <div className="section-head"><div><h3>{activeBook?.icon||"📚"} {activeBook?.name||"Stundenplan"}</h3><div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>Eigener Stundenplan – unabhängig von deinen anderen Plänen</div></div><button className="btn" onClick={()=>{setForm({...empty,subjectId:subjects[0]?.id||""});setShowForm(true)}}><Plus size={14}/> Stunde</button></div>
+
+    <div className="card" style={{overflowX:"auto"}}><div style={{display:"grid",gridTemplateColumns:"70px repeat(5,1fr)",gap:6,minWidth:640}}><div/>{WEEKDAYS.slice(0,5).map(w=><div key={w} style={{textAlign:"center",fontWeight:700,fontSize:12,padding:6}}>{w}</div>)}
+      {times.map((time)=><React.Fragment key={time}><div style={{fontSize:11,color:"var(--text-muted)",paddingTop:10}}>{time}</div>{[0,1,2,3,4].map(day=>{const lesson=(activeBook?.schedule||[]).find(s=>s.day===day&&s.start===time);const sub=lesson?subjectById(lesson.subjectId):null;return <div key={day} style={{minHeight:56,borderRadius:8,background:sub?sub.color+"22":"var(--surface-alt)",padding:6,position:"relative"}}>{lesson&&<div><div style={{fontSize:12,fontWeight:700,color:sub?.color||"var(--text)"}}>{sub?.name||"Fach"}</div><div style={{fontSize:10,color:"var(--text-muted)"}}>{lesson.room} · {lesson.teacher}</div><button className="iconbtn" style={{position:"absolute",top:2,right:2}} onClick={()=>remove(lesson.id)}><X size={11}/></button></div>}</div>})}</React.Fragment>)}
+      {times.length===0&&<div style={{gridColumn:"1 / -1"}} className="empty-state">Noch keine Unterrichtsstunden. Füge oben deine erste Stunde hinzu.</div>}
+    </div></div>
+
+    {showForm&&<Modal onClose={()=>setShowForm(false)} title="Neue Unterrichtsstunde"><div className="grid2">
+      <div><label className="fl">Fach</label><select value={form.subjectId} onChange={e=>setForm({...form,subjectId:e.target.value})}>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+      <div><label className="fl">Wochentag</label><select value={form.day} onChange={e=>setForm({...form,day:Number(e.target.value)})}>{WEEKDAYS.slice(0,5).map((w,i)=><option key={w} value={i}>{w}</option>)}</select></div>
+      <div><label className="fl">Lehrer</label><input value={form.teacher} onChange={e=>setForm({...form,teacher:e.target.value})}/></div><div><label className="fl">Raum</label><input value={form.room} onChange={e=>setForm({...form,room:e.target.value})}/></div>
+      <div><label className="fl">Start</label><input type="time" value={form.start} onChange={e=>setForm({...form,start:e.target.value})}/></div><div><label className="fl">Ende</label><input type="time" value={form.end} onChange={e=>setForm({...form,end:e.target.value})}/></div>
+    </div><div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><button className="btn" onClick={add}>Speichern</button></div></Modal>}
+
+    {showBookForm&&<Modal onClose={()=>setShowBookForm(false)} title={editingBook?"Stundenplan bearbeiten":"Neuen Stundenplan erstellen"}><div style={{display:"grid",gap:12}}>
+      <div><label className="fl">Name</label><input autoFocus value={bookName} onChange={e=>setBookName(e.target.value)} placeholder="z. B. Schuljahr 2026/27"/></div>
+      <div><label className="fl">Symbol</label><input value={bookIcon} onChange={e=>setBookIcon(e.target.value)} maxLength={4} placeholder="📚"/></div>
+      <div><label className="fl">Farbe</label><input type="color" value={bookColor} onChange={e=>setBookColor(e.target.value)} style={{height:44,padding:4}}/></div>
+    </div><div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><button className="btn" onClick={saveBook}>Speichern</button></div></Modal>}
+  </div>;
 }
