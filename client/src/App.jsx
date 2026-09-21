@@ -1,0 +1,1210 @@
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  LayoutGrid, GraduationCap, CalendarDays, ListChecks, StickyNote,
+  Clock, Plus, X, Trash2, Pencil, Star, Moon, Sun, ChevronLeft,
+  ChevronRight, Bell, BookOpenCheck, TrendingUp, TrendingDown,
+  Search, CheckCircle2, Circle, Sparkles, UserCircle, Menu, GripVertical, Camera, KeyRound, Save, LogOut, UserPlus, Lock
+} from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import {
+  registerUser, loginUser, logoutUser, fetchMe, fetchProfile, saveProfile,
+  fetchData, saveData, changePassword as apiChangePassword,
+  getStoredToken, persistToken, setToken,
+} from "./api.js";
+
+const SUBJECT_COLORS = ["#3A5BFF", "#FF6B4A", "#1FAE6E", "#A855F7", "#F5A623", "#EC4899", "#14B8A6", "#6366F1"];
+const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const REMINDER_OPTS = [
+  { v: 5, l: "5 Min. vorher" }, { v: 15, l: "15 Min. vorher" }, { v: 30, l: "30 Min. vorher" },
+  { v: 60, l: "1 Std. vorher" }, { v: 1440, l: "1 Tag vorher" }, { v: 4320, l: "3 Tage vorher" },
+  { v: 10080, l: "1 Woche vorher" },
+];
+const EVENT_TYPES = ["Klassenarbeit","Klausur","Prüfung","Test","Präsentation","Referat","Abgabe","Projekt","Klassenfahrt","Wandertag","Schulveranstaltung","Sonstiges"];
+const GRADE_TYPES = { written: ["Klassenarbeit","Klausur","Test","Hausaufgabe","Projekt"], oral: ["Mündlich","Präsentation","Referat","Sonstiges"] };
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const fmtDate = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
+const fmtShort = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getDate()}.${d.getMonth()+1}.`; };
+const daysUntil = (iso) => Math.ceil((new Date(iso+"T00:00:00") - new Date(todayISO()+"T00:00:00")) / 86400000);
+
+function seedData() {
+  const subjects = [
+    { id: "math", name: "Mathematik", color: SUBJECT_COLORS[0], writtenWeight: 60, oralWeight: 40 },
+    { id: "de", name: "Deutsch", color: SUBJECT_COLORS[1], writtenWeight: 50, oralWeight: 50 },
+    { id: "en", name: "Englisch", color: SUBJECT_COLORS[2], writtenWeight: 40, oralWeight: 60 },
+    { id: "info", name: "Informatik", color: SUBJECT_COLORS[3], writtenWeight: 30, oralWeight: 70 },
+    { id: "sport", name: "Sport", color: SUBJECT_COLORS[4], writtenWeight: 0, oralWeight: 100 },
+  ];
+  const grades = [
+    { id: uid(), subjectId: "math", kind: "written", type: "Klassenarbeit", value: 3.0, date: "2026-06-10" },
+    { id: uid(), subjectId: "math", kind: "written", type: "Klassenarbeit", value: 2.3, date: "2026-08-05" },
+    { id: uid(), subjectId: "math", kind: "written", type: "Test", value: 1.7, date: "2026-09-01" },
+    { id: uid(), subjectId: "math", kind: "oral", type: "Mündlich", value: 2.0, date: "2026-08-20" },
+    { id: uid(), subjectId: "de", kind: "written", type: "Klassenarbeit", value: 2.7, date: "2026-07-15" },
+    { id: uid(), subjectId: "de", kind: "oral", type: "Präsentation", value: 1.3, date: "2026-09-02" },
+    { id: uid(), subjectId: "en", kind: "written", type: "Test", value: 2.0, date: "2026-08-12" },
+    { id: uid(), subjectId: "en", kind: "oral", type: "Mündlich", value: 1.7, date: "2026-09-05" },
+    { id: uid(), subjectId: "info", kind: "oral", type: "Projekt", value: 1.0, date: "2026-08-28" },
+  ];
+  const events = [
+    { id: uid(), title: "Mathematik Klassenarbeit", subjectId: "math", date: "2026-09-24", from: "10:15", to: "11:00", location: "Raum 204", type: "Klassenarbeit", priority: "hoch", notes: "Themen: Ableitungen, Kurvendiskussion", reminders: [10080, 1440, 30] },
+    { id: uid(), title: "Englisch Präsentation", subjectId: "en", date: "2026-09-18", from: "13:30", to: "14:15", location: "Raum 112", type: "Präsentation", priority: "normal", notes: "", reminders: [1440] },
+    { id: uid(), title: "Klassenfahrt", subjectId: null, date: "2026-10-05", from: "08:00", to: "16:00", location: "Jugendherberge", type: "Klassenfahrt", priority: "normal", notes: "", reminders: [10080] },
+  ];
+  const tasks = [
+    { id: uid(), title: "Matheaufgaben S. 42", subjectId: "math", due: "2026-09-16", priority: "hoch", status: "offen", subtasks: [] },
+    { id: uid(), title: "Englisch Vokabeln lernen", subjectId: "en", due: "2026-09-17", priority: "normal", status: "in Bearbeitung", subtasks: [] },
+    { id: uid(), title: "Deutsch Lektüre lesen", subjectId: "de", due: "2026-09-20", priority: "niedrig", status: "offen", subtasks: [] },
+  ];
+  const notes = [
+    { id: uid(), title: "Mathe – wichtige Formeln", content: "Mitternachtsformel, binomische Formeln, Ableitungsregeln wiederholen.", subjectId: "math", favorite: true, createdAt: "2026-09-10" },
+  ];
+  const schedule = [
+    { id: uid(), subjectId: "math", teacher: "Fr. Weber", room: "204", day: 0, start: "08:00", end: "08:45" },
+    { id: uid(), subjectId: "math", teacher: "Fr. Weber", room: "204", day: 0, start: "08:45", end: "09:30" },
+    { id: uid(), subjectId: "en", teacher: "Hr. Klein", room: "112", day: 0, start: "09:50", end: "10:35" },
+    { id: uid(), subjectId: "de", teacher: "Fr. Bauer", room: "108", day: 1, start: "08:00", end: "08:45" },
+    { id: uid(), subjectId: "info", teacher: "Hr. Roth", room: "EDV1", day: 1, start: "08:45", end: "09:30" },
+    { id: uid(), subjectId: "math", teacher: "Fr. Weber", room: "204", day: 1, start: "09:50", end: "10:35" },
+    { id: uid(), subjectId: "en", teacher: "Hr. Klein", room: "112", day: 2, start: "08:00", end: "08:45" },
+    { id: uid(), subjectId: "sport", teacher: "Hr. Fuchs", room: "Halle", day: 2, start: "09:50", end: "11:20" },
+  ];
+  return { subjects, grades, events, tasks, notes, schedule };
+}
+
+function Avg(nums) { if (!nums.length) return null; return nums.reduce((a,b)=>a+b,0)/nums.length; }
+
+export default function App() {
+  const [dark, setDark] = useState(false);
+  const [session, setSession] = useState(null); // { username }
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Beim Start prüfen, ob noch ein gültiger Token aus einer früheren
+  // Sitzung gespeichert ist, damit man nicht bei jedem Start neu einloggen muss.
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!token) { setCheckingSession(false); return; }
+    setToken(token);
+    fetchMe()
+      .then((me) => setSession({ username: me.username }))
+      .catch(() => persistToken(null))
+      .finally(() => setCheckingSession(false));
+  }, []);
+
+  const handleLogin = (username, token) => {
+    persistToken(token);
+    setSession({ username });
+  };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    persistToken(null);
+    setSession(null);
+  };
+
+  const css = `
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+    * { box-sizing: border-box; }
+    .sapp { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 640px; border-radius: 16px; overflow: hidden; display: flex; }
+    .sapp h1, .sapp h2, .sapp h3, .sapp .disp { font-family: 'Space Grotesk', sans-serif; }
+    .sapp[data-theme='light'] {
+      --bg:#F4F5FA; --surface:#FFFFFF; --surface-alt:#EEF0FA; --border:#E2E4F0; --text:#14151F; --text-muted:#6B6F85;
+      --primary:#3A5BFF; --primary-soft:#E8ECFF; --accent:#FF6B4A; --success:#1FAE6E; --warning:#F5A623; --danger:#E5484D;
+    }
+    .sapp[data-theme='dark'] {
+      --bg:#101018; --surface:#181A26; --surface-alt:#1F2233; --border:#2A2D40; --text:#F2F2F7; --text-muted:#9497AE;
+      --primary:#6E85FF; --primary-soft:#242A4A; --accent:#FF8266; --success:#35D28A; --warning:#F7B84B; --danger:#F26A6E;
+    }
+    .sidebar { width: 76px; background: var(--surface); border-right: 1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding: 18px 0; gap:6px; flex-shrink:0; }
+    .sidebar .logo { width:36px; height:36px; border-radius:10px; background:var(--primary); display:flex; align-items:center; justify-content:center; color:white; margin-bottom:14px; font-weight:700; font-family:'Space Grotesk'; }
+    .navbtn { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); cursor:pointer; border:none; background:transparent; transition:.15s; }
+    .navbtn:hover { background:var(--surface-alt); color:var(--text); }
+    .navbtn.active { background:var(--primary-soft); color:var(--primary); }
+    .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 28px; border-bottom:1px solid var(--border); }
+    .content { padding:24px 28px; overflow-y:auto; max-height:760px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
+    .btn { display:inline-flex; align-items:center; gap:6px; background:var(--primary); color:white; border:none; padding:9px 14px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; }
+    .btn.secondary { background:var(--surface-alt); color:var(--text); }
+    .btn.ghost { background:transparent; color:var(--text-muted); padding:6px; }
+    .pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:600; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    input, select, textarea { font-family:'Inter'; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; width:100%; }
+    label.fl { font-size:12px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px; }
+    .rowline { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+    .rowline:last-child { border-bottom:none; }
+    .iconbtn { border:none; background:transparent; cursor:pointer; color:var(--text-muted); padding:4px; border-radius:6px; }
+    .iconbtn:hover { background:var(--surface-alt); color:var(--text); }
+    .navlabel { font-size:9px; color:var(--text-muted); margin-top:-2px; }
+    .mobile-menu-btn{display:none}
+    .mobile-backdrop{display:none}
+    .profile-mini{display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:5px 9px 5px 5px;border-radius:999px;cursor:pointer;font-weight:600}
+    .profile-mini img,.profile-mini>span:first-child{width:30px;height:30px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;background:var(--primary-soft);color:var(--primary);font-weight:700}
+    .profile-mini-name{font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .subject-card{transition:transform .15s,box-shadow .15s,border-color .15s}
+    .subject-card.dragging{opacity:.45;transform:scale(.99)}
+    .subject-card.drag-over{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
+    .drag-handle{cursor:grab;color:var(--text-muted);display:flex;align-items:center;padding:5px;border-radius:7px;touch-action:none}
+    .profile-avatar{width:96px;height:96px;border-radius:50%;object-fit:cover;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:30px;font-weight:700;border:3px solid var(--border);overflow:hidden}
+    .profile-avatar img{width:100%;height:100%;object-fit:cover}
+    .profile-grid{display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:start}
+    .profile-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+    @media(max-width:760px){
+      .sapp{min-height:100vh;border-radius:0;width:100%}
+      .sidebar{position:fixed;z-index:70;left:0;top:0;bottom:0;width:250px;transform:translateX(-105%);transition:transform .2s ease;align-items:stretch;padding:18px 14px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+      .sidebar.mobile-open{transform:translateX(0)}
+      .sidebar .logo{margin-left:8px;margin-bottom:16px}
+      .sidebar .navbtn{width:100%;justify-content:flex-start;padding:0 14px}
+      .sidebar .navlabel{font-size:12px;margin:0}
+      .mobile-menu-btn{display:flex;position:fixed;z-index:80;top:12px;left:12px;width:40px;height:40px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,0,0,.08)}
+      .mobile-backdrop{display:block;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.35)}
+      .topbar{padding:14px 14px 14px 62px;min-height:64px}
+      .topbar-title h2{font-size:18px!important}
+      .profile-mini-name{display:none}
+      .content{padding:14px;max-height:none;overflow-y:visible}
+      .grid2,.grid3{grid-template-columns:1fr}
+      .card{padding:15px}
+      .profile-grid{grid-template-columns:1fr}
+      .profile-avatar{margin:auto}
+      .grade-entry{grid-template-columns:1fr 1fr!important}
+      .grade-entry .btn{grid-column:1/-1}
+    }
+    @media(max-width:480px){
+      .content{padding:10px}
+      .topbar-title h2{font-size:16px!important}
+      .profile-section{padding:16px}
+      .modal-content{width:calc(100vw - 20px)!important;max-height:88vh!important}
+    }
+
+  `;
+
+  return (
+    <div>
+      <style>{css}</style>
+      {checkingSession ? (
+        <div className="sapp" data-theme={dark ? "dark" : "light"} style={{ minHeight: 640, alignItems: "center", justifyContent: "center" }}>
+          <div style={{ margin: "auto", padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Lade…</div>
+        </div>
+      ) : !session ? (
+        <AuthScreen dark={dark} setDark={setDark} onLogin={handleLogin} />
+      ) : (
+        <MainApp username={session.username} dark={dark} setDark={setDark} onLogout={handleLogout} />
+      )}
+    </div>
+  );
+}
+
+function AuthScreen({ dark, setDark, onLogin }) {
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const switchMode = (m) => { setMode(m); setError(""); setPassword(""); setConfirmPassword(""); };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!username.trim() || !password) { setError("Bitte Benutzername und Passwort eingeben."); return; }
+    setBusy(true);
+    try {
+      if (mode === "register") {
+        if (password !== confirmPassword) throw new Error("Die Passwörter stimmen nicht überein.");
+        const { token, username: u } = await registerUser(username, password, name);
+        onLogin(u, token);
+      } else {
+        const { token, username: u } = await loginUser(username, password);
+        onLogin(u, token);
+      }
+    } catch (err) {
+      setError(err.message || "Etwas ist schiefgelaufen. Bitte versuch es erneut.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="sapp" data-theme={dark ? "dark" : "light"} style={{ minHeight: 640, alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ margin: "auto", width: 380, maxWidth: "100%" }}>
+        <div className="card">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontFamily: "'Space Grotesk'" }}>S</div>
+          </div>
+          <h2 style={{ textAlign: "center", margin: "0 0 4px", fontSize: 20 }}>
+            {mode === "login" ? "Anmelden" : "Konto erstellen"}
+          </h2>
+          <div style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", marginBottom: 22 }}>
+            {mode === "login" ? "Melde dich mit deinem Account an." : "Erstelle einen Account, um deine Daten zu speichern."}
+          </div>
+          <form onSubmit={submit}>
+            {mode === "register" && (
+              <div style={{ marginBottom: 10 }}>
+                <label className="fl">Anzeigename</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Max" autoComplete="name" />
+              </div>
+            )}
+            <div style={{ marginBottom: 10 }}>
+              <label className="fl">Benutzername</label>
+              <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="z. B. max123" autoComplete="username" />
+            </div>
+            <div style={{ marginBottom: mode === "register" ? 10 : 18 }}>
+              <label className="fl">Passwort</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+            </div>
+            {mode === "register" && (
+              <div style={{ marginBottom: 18 }}>
+                <label className="fl">Passwort wiederholen</label>
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+              </div>
+            )}
+            {error && <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 14 }}>{error}</div>}
+            <button className="btn" type="submit" disabled={busy} style={{ width: "100%", justifyContent: "center" }}>
+              {busy ? "Bitte warten…" : mode === "login" ? <><Lock size={14}/> Anmelden</> : <><UserPlus size={14}/> Registrieren</>}
+            </button>
+          </form>
+          <div style={{ textAlign: "center", fontSize: 12, marginTop: 18, color: "var(--text-muted)" }}>
+            {mode === "login" ? (
+              <>Noch kein Konto?{" "}
+                <a href="#" onClick={(e) => { e.preventDefault(); switchMode("register"); }} style={{ color: "var(--primary)", fontWeight: 600 }}>Registrieren</a>
+              </>
+            ) : (
+              <>Schon ein Konto?{" "}
+                <a href="#" onClick={(e) => { e.preventDefault(); switchMode("login"); }} style={{ color: "var(--primary)", fontWeight: 600 }}>Anmelden</a>
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 14 }}>
+          <button className="navbtn" style={{ width: 40, height: 40 }} onClick={() => setDark((d) => !d)} title="Theme wechseln">
+            {dark ? <Sun size={16}/> : <Moon size={16}/>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MainApp({ username, dark, setDark, onLogout }) {
+  const [tab, setTab] = useState("dashboard");
+  const [mobileNav, setMobileNav] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setDataRaw] = useState(null);
+  const [profile, setProfileRaw] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const [d, p] = await Promise.all([fetchData(), fetchProfile()]);
+        if (cancelled) return;
+        setDataRaw(d);
+        setProfileRaw(p);
+      } catch {
+        if (!cancelled) {
+          setDataRaw({ subjects: [], grades: [], events: [], tasks: [], notes: [], schedule: [] });
+          setProfileRaw({ name: username, avatar: "" });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [username]);
+
+  useEffect(() => {
+    if (loading || !data) return;
+    saveData(data).catch(() => {});
+  }, [data, loading]);
+
+  useEffect(() => {
+    if (loading || !profile) return;
+    saveProfile(profile).catch(() => {});
+  }, [profile, loading]);
+
+  const subjects = data?.subjects || [];
+  const grades = data?.grades || [];
+  const events = data?.events || [];
+  const tasks = data?.tasks || [];
+  const notes = data?.notes || [];
+  const schedule = data?.schedule || [];
+
+  const set = (key) => (fn) => setDataRaw((d) => d ? ({ ...d, [key]: typeof fn === "function" ? fn(d[key]) : fn }) : d);
+  const setSubjects = set("subjects"), setGrades = set("grades"), setEvents = set("events"), setTasks = set("tasks"), setNotes = set("notes"), setSchedule = set("schedule");
+  const setProfile = (fn) => setProfileRaw((p) => (typeof fn === "function" ? fn(p) : fn));
+
+  const subjectById = (id) => subjects.find((s) => s.id === id);
+
+  const subjectAverages = useMemo(() => {
+    return subjects.map((s) => {
+      const own = grades.filter((g) => g.subjectId === s.id);
+      const w = Avg(own.filter((g) => g.kind === "written").map((g) => g.value));
+      const o = Avg(own.filter((g) => g.kind === "oral").map((g) => g.value));
+      let weighted = null;
+      if (w != null && o != null) weighted = (w * s.writtenWeight + o * s.oralWeight) / 100;
+      else if (w != null) weighted = w;
+      else if (o != null) weighted = o;
+      return { subject: s, written: w, oral: o, weighted };
+    });
+  }, [subjects, grades]);
+
+  const overallAvg = useMemo(() => {
+    const vals = subjectAverages.filter((a) => a.weighted != null).map((a) => a.weighted);
+    return Avg(vals);
+  }, [subjectAverages]);
+
+  const upcomingEvents = useMemo(() => [...events].filter(e => daysUntil(e.date) >= 0).sort((a,b)=>a.date.localeCompare(b.date)), [events]);
+  const todayDow = (new Date().getDay() + 6) % 7;
+  const todaysLessons = useMemo(() => schedule.filter(s => s.day === todayDow).sort((a,b)=>a.start.localeCompare(b.start)), [schedule, todayDow]);
+  const tasksToday = tasks.filter(t => t.due === todayISO() && t.status !== "erledigt");
+  const openTasks = tasks.filter(t => t.status !== "erledigt").sort((a,b)=>a.due.localeCompare(b.due));
+
+  if (loading || !data || !profile) {
+    return (
+      <div className="sapp" data-theme={dark ? "dark" : "light"} style={{ minHeight: 640, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ margin: "auto", padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Lade deine Daten…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sapp" data-theme={dark ? "dark" : "light"}>
+      <Sidebar tab={tab} setTab={setTab} dark={dark} setDark={setDark} mobileNav={mobileNav} setMobileNav={setMobileNav} />
+      <div className="main">
+        <Topbar tab={tab} profile={profile} setTab={setTab} username={username} onLogout={onLogout} />
+        <div className="content">
+          {tab === "dashboard" && (
+            <Dashboard subjects={subjects} overallAvg={overallAvg} subjectAverages={subjectAverages}
+              todaysLessons={todaysLessons} upcomingEvents={upcomingEvents} tasksToday={tasksToday} subjectById={subjectById} />
+          )}
+          {tab === "grades" && (
+            <Grades subjects={subjects} setSubjects={setSubjects} grades={grades} setGrades={setGrades} subjectAverages={subjectAverages} overallAvg={overallAvg} />
+          )}
+          {tab === "calendar" && (
+            <CalendarView events={events} setEvents={setEvents} subjects={subjects} subjectById={subjectById} />
+          )}
+          {tab === "tasks" && (
+            <Tasks tasks={tasks} setTasks={setTasks} subjects={subjects} subjectById={subjectById} />
+          )}
+          {tab === "notes" && (
+            <Notes notes={notes} setNotes={setNotes} subjects={subjects} subjectById={subjectById} />
+          )}
+          {tab === "schedule" && (
+            <Schedule schedule={schedule} setSchedule={setSchedule} subjects={subjects} subjectById={subjectById} />
+          )}
+          {tab === "profile" && (
+            <Profile profile={profile} setProfile={setProfile} username={username} onLogout={onLogout} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({ tab, setTab, dark, setDark, mobileNav, setMobileNav }) {
+  const items = [
+    { id: "dashboard", icon: LayoutGrid, label: "Start" },
+    { id: "grades", icon: GraduationCap, label: "Noten" },
+    { id: "calendar", icon: CalendarDays, label: "Termine" },
+    { id: "tasks", icon: ListChecks, label: "Aufgaben" },
+    { id: "notes", icon: StickyNote, label: "Notizen" },
+    { id: "schedule", icon: Clock, label: "Plan" },
+  ];
+  const navigate = (id) => { setTab(id); setMobileNav(false); };
+  return (
+    <>
+      <button className="mobile-menu-btn" onClick={() => setMobileNav(v => !v)} aria-label="Menü"><Menu size={20}/></button>
+      {mobileNav && <div className="mobile-backdrop" onClick={() => setMobileNav(false)} />}
+      <div className={"sidebar " + (mobileNav ? "mobile-open" : "")}>
+        <div className="logo">S</div>
+        {items.map((it) => (
+          <div key={it.id} style={{display:"flex",flexDirection:"column",alignItems:"center",width:"100%"}}>
+            <button className={"navbtn"+(tab===it.id?" active":"")} onClick={() => navigate(it.id)} title={it.label}><it.icon size={19}/></button>
+            <span className="navlabel">{it.label}</span>
+          </div>
+        ))}
+        <div style={{flex:1}}/>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"100%"}}>
+          <button className={"navbtn"+(tab==="profile"?" active":"")} onClick={() => navigate("profile")} title="Profil"><UserCircle size={19}/></button>
+          <span className="navlabel">Profil</span>
+        </div>
+        <button className="navbtn" onClick={() => setDark(d => !d)} title="Theme wechseln">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button>
+      </div>
+    </>
+  );
+}
+
+function Topbar({ tab, profile, setTab, username, onLogout }) {
+  const titles = { dashboard:"Dein Überblick", grades:"Noten", calendar:"Termine & Kalender", tasks:"Aufgaben", notes:"Notizen", schedule:"Stundenplan", profile:"Mein Profil" };
+  const now = new Date();
+  const weekday = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"][now.getDay()];
+  const initials = (profile.name || "S").trim().slice(0,1).toUpperCase();
+  return (
+    <div className="topbar">
+      <div className="topbar-title">
+        <h2 style={{margin:0,fontSize:20}}>{titles[tab]}</h2>
+        <div style={{fontSize:12,color:"var(--text-muted)",marginTop:2}}>{weekday}, {now.getDate()}. {MONTHS[now.getMonth()]} {now.getFullYear()}</div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <button className="profile-mini" onClick={() => setTab("profile")} title="Profil öffnen">
+          {profile.avatar ? <img src={profile.avatar} alt="Profilbild"/> : <span>{initials}</span>}
+          <span className="profile-mini-name">{profile.name || username}</span>
+        </button>
+        <button className="iconbtn" onClick={onLogout} title="Abmelden"><LogOut size={18}/></button>
+      </div>
+    </div>
+  );
+}
+
+function GradeBadge({ value, color }) {
+  return <span className="pill" style={{ background: color + "22", color }}>{value != null ? value.toFixed(2) : "–"}</span>;
+}
+
+function Dashboard({ subjects, overallAvg, subjectAverages, todaysLessons, upcomingEvents, tasksToday, subjectById }) {
+  const best = [...subjectAverages].filter(a=>a.weighted!=null).sort((a,b)=>a.weighted-b.weighted)[0];
+  const worst = [...subjectAverages].filter(a=>a.weighted!=null).sort((a,b)=>b.weighted-a.weighted)[0];
+  return (
+    <div>
+      <div className="grid3" style={{ marginBottom: 18 }}>
+        <div className="card">
+          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>Gesamtdurchschnitt</div>
+          <div className="disp" style={{ fontSize: 34, fontWeight: 700, marginTop: 4 }}>{overallAvg != null ? overallAvg.toFixed(2) : "–"}</div>
+        </div>
+        <div className="card">
+          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, display:"flex", alignItems:"center", gap:5 }}><TrendingUp size={13}/> Bestes Fach</div>
+          {best ? <div style={{ marginTop: 8, display:"flex", alignItems:"center", gap:8 }}><span style={{width:8,height:8,borderRadius:99,background:best.subject.color}}/><b>{best.subject.name}</b><GradeBadge value={best.weighted} color={best.subject.color} /></div> : <div style={{marginTop:8,color:"var(--text-muted)"}}>Noch keine Noten</div>}
+        </div>
+        <div className="card">
+          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, display:"flex", alignItems:"center", gap:5 }}><TrendingDown size={13}/> Schwächstes Fach</div>
+          {worst ? <div style={{ marginTop: 8, display:"flex", alignItems:"center", gap:8 }}><span style={{width:8,height:8,borderRadius:99,background:worst.subject.color}}/><b>{worst.subject.name}</b><GradeBadge value={worst.weighted} color={worst.subject.color} /></div> : <div style={{marginTop:8,color:"var(--text-muted)"}}>Noch keine Noten</div>}
+        </div>
+      </div>
+
+      <div className="grid2">
+        <div className="card">
+          <h3 style={{ marginTop: 0, fontSize: 15 }}>Heutiger Stundenplan</h3>
+          {todaysLessons.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Heute keine Stunden eingetragen.</div>}
+          {todaysLessons.map((l) => {
+            const s = subjectById(l.subjectId);
+            return (
+              <div className="rowline" key={l.id}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: s?.color }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{s?.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Raum {l.room} · {l.teacher}</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{l.start} – {l.end}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginTop: 0, fontSize: 15 }}>Nächste Termine</h3>
+          {upcomingEvents.slice(0, 4).map((e) => {
+            const s = subjectById(e.subjectId);
+            return (
+              <div className="rowline" key={e.id}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: s?.color || "var(--text-muted)" }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{e.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{fmtDate(e.date)} · {e.from} Uhr</div>
+                  </div>
+                </div>
+                <span className="pill" style={{ background: "var(--surface-alt)", color: "var(--text-muted)" }}>in {daysUntil(e.date)} Tg.</span>
+              </div>
+            );
+          })}
+          {upcomingEvents.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Keine bevorstehenden Termine.</div>}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0, fontSize: 15 }}>Aufgaben für heute</h3>
+        {tasksToday.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Nichts fällig für heute — genieß den Tag 🎉</div>}
+        {tasksToday.map((t) => {
+          const s = subjectById(t.subjectId);
+          return (
+            <div className="rowline" key={t.id}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Circle size={15} color="var(--text-muted)" />
+                <span style={{ fontSize: 13 }}>{t.title}</span>
+              </div>
+              {s && <span className="pill" style={{ background: s.color + "22", color: s.color }}>{s.name}</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Grades({ subjects, setSubjects, grades, setGrades, subjectAverages, overallAvg }) {
+  const [newSubject, setNewSubject] = useState(false);
+  const [form, setForm] = useState({ name: "", writtenWeight: 50, oralWeight: 50 });
+  const [gradeForm, setGradeForm] = useState({}); // subjectId -> form state
+  const [activeChart, setActiveChart] = useState(subjects[0]?.id || null);
+  const [draggedSubject, setDraggedSubject] = useState(null);
+  const [dragOverSubject, setDragOverSubject] = useState(null);
+
+  const moveSubject = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    setSubjects(list => {
+      const next = [...list];
+      const from = next.findIndex(x => x.id === fromId);
+      const to = next.findIndex(x => x.id === toId);
+      if (from < 0 || to < 0) return list;
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+
+  const addSubject = () => {
+    if (!form.name.trim()) return;
+    const color = SUBJECT_COLORS[subjects.length % SUBJECT_COLORS.length];
+    setSubjects((s) => [...s, { id: uid(), name: form.name, color, writtenWeight: Number(form.writtenWeight), oralWeight: Number(form.oralWeight) }]);
+    setForm({ name: "", writtenWeight: 50, oralWeight: 50 });
+    setNewSubject(false);
+  };
+  const removeSubject = (id) => { setSubjects((s) => s.filter((x) => x.id !== id)); setGrades((g) => g.filter((x) => x.subjectId !== id)); };
+  const updateWeight = (id, key, val) => setSubjects((s) => s.map((x) => x.id === id ? { ...x, [key]: Number(val) } : x));
+
+  const addGrade = (subjectId) => {
+    const f = gradeForm[subjectId];
+    if (!f || !f.value) return;
+    setGrades((g) => [...g, { id: uid(), subjectId, kind: f.kind || "written", type: f.type || GRADE_TYPES.written[0], value: Number(f.value), date: f.date || todayISO() }]);
+    setGradeForm((prev) => ({ ...prev, [subjectId]: { ...f, value: "" } }));
+  };
+  const removeGrade = (id) => setGrades((g) => g.filter((x) => x.id !== id));
+
+  const chartData = useMemo(() => {
+    if (!activeChart) return [];
+    return grades.filter((g) => g.subjectId === activeChart).sort((a,b)=>a.date.localeCompare(b.date)).map((g, i) => ({ name: `#${i+1}`, wert: g.value }));
+  }, [grades, activeChart]);
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>Gesamtdurchschnitt</div>
+          <div className="disp" style={{ fontSize: 30, fontWeight: 700 }}>{overallAvg != null ? overallAvg.toFixed(2) : "–"}</div>
+        </div>
+        <button className="btn" onClick={() => setNewSubject(true)}><Plus size={14}/> Fach hinzufügen</button>
+      </div>
+
+      {newSubject && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="grid3">
+            <div><label className="fl">Fachname</label><input value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})} placeholder="z. B. Chemie" /></div>
+            <div><label className="fl">Gewichtung schriftlich (%)</label><input type="number" value={form.writtenWeight} onChange={(e)=>setForm({...form,writtenWeight:e.target.value, oralWeight: 100-Number(e.target.value)})} /></div>
+            <div><label className="fl">Gewichtung mündlich (%)</label><input type="number" value={form.oralWeight} onChange={(e)=>setForm({...form,oralWeight:e.target.value, writtenWeight: 100-Number(e.target.value)})} /></div>
+          </div>
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <button className="btn" onClick={addSubject}>Speichern</button>
+            <button className="btn secondary" onClick={() => setNewSubject(false)}>Abbrechen</button>
+          </div>
+        </div>
+      )}
+
+      {subjects.map((s) => {
+        const avg = subjectAverages.find((a) => a.subject.id === s.id);
+        const own = grades.filter((g) => g.subjectId === s.id);
+        const f = gradeForm[s.id] || { kind: "written", type: GRADE_TYPES.written[0], value: "", date: todayISO() };
+        return (
+          <div
+            className={"card subject-card" + (draggedSubject === s.id ? " dragging" : "") + (dragOverSubject === s.id ? " drag-over" : "")}
+            key={s.id}
+            draggable
+            onDragStart={(e) => { setDraggedSubject(s.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.id); }}
+            onDragOver={(e) => { e.preventDefault(); if (draggedSubject !== s.id) setDragOverSubject(s.id); }}
+            onDragLeave={() => setDragOverSubject(null)}
+            onDrop={(e) => { e.preventDefault(); moveSubject(draggedSubject, s.id); setDraggedSubject(null); setDragOverSubject(null); }}
+            onDragEnd={() => { setDraggedSubject(null); setDragOverSubject(null); }}
+            style={{ marginBottom: 14 }}
+          >
+            <div className="subject-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <span className="drag-handle" title="Fach verschieben"><GripVertical size={18}/></span>
+                <span style={{ width: 10, height: 10, borderRadius: 99, background: s.color, flexShrink:0 }} />
+                <b style={{ fontSize: 15, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</b>
+                <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace:"nowrap" }}>Schriftlich {s.writtenWeight}% · Mündlich {s.oralWeight}%</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <GradeBadge value={avg?.weighted} color={s.color} />
+                <button className="iconbtn" title="Nach oben" onClick={() => {
+                  const i = subjects.findIndex(x => x.id === s.id);
+                  if (i > 0) moveSubject(s.id, subjects[i - 1].id);
+                }}>↑</button>
+                <button className="iconbtn" title="Nach unten" onClick={() => {
+                  const i = subjects.findIndex(x => x.id === s.id);
+                  if (i < subjects.length - 1) moveSubject(s.id, subjects[i + 1].id);
+                }}>↓</button>
+                <button className="iconbtn" onClick={() => removeSubject(s.id)} title="Fach löschen"><Trash2 size={15} /></button>
+              </div>
+            </div>
+
+            <div className="grid3" style={{ marginTop: 12 }}>
+              <div className="card" style={{ background: "var(--surface-alt)", border: "none" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Schriftlich Ø</div>
+                <div style={{ fontWeight: 700, fontSize: 18 }}>{avg?.written != null ? avg.written.toFixed(2) : "–"}</div>
+              </div>
+              <div className="card" style={{ background: "var(--surface-alt)", border: "none" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Mündlich Ø</div>
+                <div style={{ fontWeight: 700, fontSize: 18 }}>{avg?.oral != null ? avg.oral.toFixed(2) : "–"}</div>
+              </div>
+              <div className="card" style={{ background: "var(--surface-alt)", border: "none" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Gewichtet</div>
+                <div style={{ fontWeight: 700, fontSize: 18, color: s.color }}>{avg?.weighted != null ? avg.weighted.toFixed(2) : "–"}</div>
+              </div>
+            </div>
+
+            <div className="grade-entry" style={{ marginTop: 14, display: "grid", gridTemplateColumns: "90px 1fr 90px 120px auto", gap: 8, alignItems: "end" }}>
+              <div><label className="fl">Art</label>
+                <select value={f.kind} onChange={(e)=>setGradeForm({...gradeForm,[s.id]:{...f,kind:e.target.value,type:GRADE_TYPES[e.target.value][0]}})}>
+                  <option value="written">Schriftlich</option><option value="oral">Mündlich</option>
+                </select>
+              </div>
+              <div><label className="fl">Notenart</label>
+                <select value={f.type} onChange={(e)=>setGradeForm({...gradeForm,[s.id]:{...f,type:e.target.value}})}>
+                  {GRADE_TYPES[f.kind].map((t)=> <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div><label className="fl">Note</label><input type="number" step="0.1" value={f.value} onChange={(e)=>setGradeForm({...gradeForm,[s.id]:{...f,value:e.target.value}})} placeholder="2.3" /></div>
+              <div><label className="fl">Datum</label><input type="date" value={f.date} onChange={(e)=>setGradeForm({...gradeForm,[s.id]:{...f,date:e.target.value}})} /></div>
+              <button className="btn" onClick={() => addGrade(s.id)}><Plus size={14}/></button>
+            </div>
+
+            {own.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                {own.sort((a,b)=>b.date.localeCompare(a.date)).map((g) => (
+                  <div className="rowline" key={g.id}>
+                    <div style={{ fontSize: 12 }}>
+                      <span style={{ fontWeight: 600 }}>{g.type}</span>
+                      <span style={{ color: "var(--text-muted)" }}> · {fmtShort(g.date)} · {g.kind === "written" ? "schriftlich" : "mündlich"}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <GradeBadge value={g.value} color={s.color} />
+                      <button className="iconbtn" onClick={() => removeGrade(g.id)}><X size={13} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {own.length > 1 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Notenverlauf</div>
+                <ResponsiveContainer width="100%" height={90}>
+                  <LineChart data={own.sort((a,b)=>a.date.localeCompare(b.date)).map((g,i)=>({name:`#${i+1}`,wert:g.value}))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
+                    <YAxis reversed domain={[1,6]} tick={{ fontSize: 10, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} width={20} />
+                    <Tooltip contentStyle={{ fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)" }} />
+                    <Line type="monotone" dataKey="wert" stroke={s.color} strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+function Profile({ profile, setProfile, username, onLogout }) {
+  const [name, setName] = useState(profile.name || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const initials = (name || "S").trim().slice(0,1).toUpperCase();
+
+  const chooseAvatar = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setMessage("Bitte wähle eine Bilddatei aus.");
+    if (file.size > 2 * 1024 * 1024) return setMessage("Das Bild darf maximal 2 MB groß sein.");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfile(p => ({...p, avatar:String(reader.result)}));
+      setMessage("Profilbild aktualisiert.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveName = () => {
+    const clean = name.trim();
+    if (!clean) return setMessage("Der Name darf nicht leer sein.");
+    setProfile(p => ({...p, name:clean}));
+    setMessage("Name gespeichert.");
+  };
+
+  const changePassword = async () => {
+    setError(""); setMessage("");
+    if (!currentPassword) return setError("Bitte gib dein aktuelles Passwort ein.");
+    if (newPassword.length < 6) return setError("Das neue Passwort muss mindestens 6 Zeichen haben.");
+    if (newPassword !== confirmPassword) return setError("Die neuen Passwörter stimmen nicht überein.");
+    setBusy(true);
+    try {
+      await apiChangePassword(currentPassword, newPassword);
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setMessage("Passwort wurde in deinem Konto gespeichert.");
+    } catch (err) {
+      setError(err.message || "Passwort konnte nicht geändert werden.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="profile-section" style={{marginBottom:16}}>
+        <div className="profile-grid">
+          <div style={{textAlign:"center"}}>
+            <div className="profile-avatar">
+              {profile.avatar ? <img src={profile.avatar} alt="Profilbild"/> : initials}
+            </div>
+            <label className="btn" style={{marginTop:12,cursor:"pointer"}}>
+              <Camera size={14}/> Bild auswählen
+              <input type="file" accept="image/*" onChange={chooseAvatar} style={{display:"none"}}/>
+            </label>
+            {profile.avatar && <button className="btn secondary" style={{marginTop:8}} onClick={() => {
+              setProfile(p => ({...p,avatar:""})); setMessage("Profilbild entfernt.");
+            }}>Entfernen</button>}
+          </div>
+          <div>
+            <h3 style={{margin:"0 0 4px"}}>Profil bearbeiten</h3>
+            <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:18}}>Passe deinen Namen und dein Profilbild an.</div>
+            <label className="fl">Name</label>
+            <div style={{display:"flex",gap:8}}>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Dein Name"/>
+              <button className="btn" onClick={saveName}><Save size={14}/> Speichern</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="profile-section" style={{marginBottom:16}}>
+        <h3 style={{margin:"0 0 4px",display:"flex",alignItems:"center",gap:7}}><UserCircle size={17}/> Konto</h3>
+        <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:14}}>Angemeldet als <b>@{username}</b></div>
+        <button className="btn secondary" onClick={onLogout}><LogOut size={14}/> Abmelden</button>
+      </div>
+
+      <div className="profile-section">
+        <h3 style={{margin:"0 0 4px",display:"flex",alignItems:"center",gap:7}}><KeyRound size={17}/> Passwort ändern</h3>
+        <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:18}}>Das Passwort wird sicher (gehasht) in deinem Konto gespeichert.</div>
+        <div className="grid2">
+          <div style={{gridColumn:"1 / -1"}}>
+            <label className="fl">Aktuelles Passwort</label>
+            <input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} autoComplete="current-password"/>
+          </div>
+          <div>
+            <label className="fl">Neues Passwort</label>
+            <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} autoComplete="new-password"/>
+          </div>
+          <div>
+            <label className="fl">Passwort wiederholen</label>
+            <input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password"/>
+          </div>
+        </div>
+        {error && <div style={{color:"var(--danger)",fontSize:12,marginTop:10}}>{error}</div>}
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+          <button className="btn" onClick={changePassword} disabled={busy}><KeyRound size={14}/> {busy ? "Speichere…" : "Passwort speichern"}</button>
+        </div>
+      </div>
+
+      {message && <div className="pill" style={{marginTop:12,padding:"9px 12px",background:"var(--primary-soft)",color:"var(--primary)"}}>{message}</div>}
+      <div style={{marginTop:16,fontSize:11,color:"var(--text-muted)"}}>
+        Hinweis: Name, Profilbild, Noten, Termine, Aufgaben, Notizen und Stundenplan werden pro Konto in einer zentralen Datenbank gespeichert und sind beim nächsten Login auf jedem Gerät wieder verfügbar.
+      </div>
+    </div>
+  );
+}
+
+function CalendarView({ events, setEvents, subjects, subjectById }) {
+  const [cursor, setCursor] = useState(new Date());
+  const [view, setView] = useState("month");
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  const year = cursor.getFullYear(), month = cursor.getMonth();
+  const grid = useMemo(() => {
+    const first = new Date(year, month, 1);
+    const startOffset = (first.getDay() + 6) % 7;
+    const start = new Date(year, month, 1 - startOffset);
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      return d;
+    });
+  }, [year, month]);
+
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const eventsOn = (d) => events.filter((e) => e.date === iso(d));
+
+  const emptyForm = { title: "", subjectId: "", date: todayISO(), from: "10:00", to: "11:00", location: "", type: "Sonstiges", priority: "normal", notes: "", reminders: [] };
+  const [form, setForm] = useState(emptyForm);
+
+  const openNew = (date) => { setForm({ ...emptyForm, date: date || todayISO() }); setEditing(null); setShowForm(true); };
+  const openEdit = (e) => { setForm(e); setEditing(e.id); setShowForm(true); };
+  const save = () => {
+    if (!form.title.trim()) return;
+    if (editing) setEvents((evs) => evs.map((e) => e.id === editing ? { ...form, id: editing } : e));
+    else setEvents((evs) => [...evs, { ...form, id: uid() }]);
+    setShowForm(false);
+  };
+  const remove = (id) => { setEvents((evs) => evs.filter((e) => e.id !== id)); setShowForm(false); };
+  const toggleReminder = (v) => setForm((f) => ({ ...f, reminders: f.reminders.includes(v) ? f.reminders.filter((r)=>r!==v) : [...f.reminders, v] }));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button className="iconbtn" onClick={() => setCursor(new Date(year, month - 1, 1))}><ChevronLeft size={18} /></button>
+          <b className="disp" style={{ fontSize: 16 }}>{MONTHS[month]} {year}</b>
+          <button className="iconbtn" onClick={() => setCursor(new Date(year, month + 1, 1))}><ChevronRight size={18} /></button>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className={"btn " + (view==="month"?"":"secondary")} onClick={()=>setView("month")}>Monat</button>
+          <button className={"btn " + (view==="agenda"?"":"secondary")} onClick={()=>setView("agenda")}>Agenda</button>
+          <button className="btn" onClick={() => openNew()}><Plus size={14}/> Termin</button>
+        </div>
+      </div>
+
+      {view === "month" && (
+        <div className="card" style={{ padding: 10, overflowX:"auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(48px,1fr))", gap: 6, marginBottom: 6 }}>
+            {WEEKDAYS.map((w) => <div key={w} style={{ textAlign: "center", fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{w}</div>)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(48px,1fr))", gap: 6 }}>
+            {grid.map((d, i) => {
+              const inMonth = d.getMonth() === month;
+              const dayEvents = eventsOn(d);
+              const isToday = iso(d) === todayISO();
+              return (
+                <div key={i} onClick={() => openNew(iso(d))} style={{
+                  minHeight: 72, borderRadius: 10, padding: 6, cursor: "pointer",
+                  background: inMonth ? "var(--surface-alt)" : "transparent",
+                  opacity: inMonth ? 1 : 0.4,
+                  border: isToday ? "2px solid var(--primary)" : "1px solid transparent"
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{d.getDate()}</div>
+                  {dayEvents.slice(0, 2).map((e) => {
+                    const s = subjectById(e.subjectId);
+                    return (
+                      <div key={e.id} onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}
+                        style={{ fontSize: 10, background: (s?.color || "#888") + "26", color: s?.color || "var(--text)", borderRadius: 5, padding: "2px 4px", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {e.title}
+                      </div>
+                    );
+                  })}
+                  {dayEvents.length > 2 && <div style={{ fontSize: 9, color: "var(--text-muted)" }}>+{dayEvents.length - 2} mehr</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {view === "agenda" && (
+        <div className="card">
+          {[...events].sort((a,b)=>a.date.localeCompare(b.date)).map((e) => {
+            const s = subjectById(e.subjectId);
+            return (
+              <div className="rowline" key={e.id} style={{ cursor: "pointer" }} onClick={() => openEdit(e)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: s?.color || "var(--text-muted)" }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{e.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{fmtDate(e.date)} · {e.from}–{e.to} · {e.location}</div>
+                  </div>
+                </div>
+                <span className="pill" style={{ background: "var(--surface-alt)", color: "var(--text-muted)" }}>{e.type}</span>
+              </div>
+            );
+          })}
+          {events.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Keine Termine vorhanden.</div>}
+        </div>
+      )}
+
+      {showForm && (
+        <Modal onClose={() => setShowForm(false)} title={editing ? "Termin bearbeiten" : "Neuer Termin"}>
+          <div className="grid2">
+            <div style={{gridColumn:"1 / -1"}}><label className="fl">Titel</label><input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} /></div>
+            <div><label className="fl">Fach</label>
+              <select value={form.subjectId || ""} onChange={(e)=>setForm({...form,subjectId:e.target.value || null})}>
+                <option value="">Kein Fach</option>
+                {subjects.map((s)=> <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div><label className="fl">Terminart</label>
+              <select value={form.type} onChange={(e)=>setForm({...form,type:e.target.value})}>
+                {EVENT_TYPES.map((t)=> <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div><label className="fl">Datum</label><input type="date" value={form.date} onChange={(e)=>setForm({...form,date:e.target.value})} /></div>
+            <div><label className="fl">Priorität</label>
+              <select value={form.priority} onChange={(e)=>setForm({...form,priority:e.target.value})}>
+                <option value="niedrig">Niedrig</option><option value="normal">Normal</option><option value="hoch">Hoch</option>
+              </select>
+            </div>
+            <div><label className="fl">Von</label><input type="time" value={form.from} onChange={(e)=>setForm({...form,from:e.target.value})} /></div>
+            <div><label className="fl">Bis</label><input type="time" value={form.to} onChange={(e)=>setForm({...form,to:e.target.value})} /></div>
+            <div style={{gridColumn:"1 / -1"}}><label className="fl">Ort</label><input value={form.location} onChange={(e)=>setForm({...form,location:e.target.value})} /></div>
+            <div style={{gridColumn:"1 / -1"}}><label className="fl">Notizen</label><textarea rows={2} value={form.notes} onChange={(e)=>setForm({...form,notes:e.target.value})} /></div>
+            <div style={{gridColumn:"1 / -1"}}>
+              <label className="fl">Erinnerungen</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {REMINDER_OPTS.map((r) => (
+                  <span key={r.v} onClick={() => toggleReminder(r.v)} className="pill" style={{
+                    cursor: "pointer", background: form.reminders.includes(r.v) ? "var(--primary)" : "var(--surface-alt)",
+                    color: form.reminders.includes(r.v) ? "white" : "var(--text-muted)"
+                  }}><Bell size={10}/> {r.l}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "space-between" }}>
+            {editing ? <button className="btn secondary" onClick={() => remove(editing)}><Trash2 size={14}/> Löschen</button> : <span />}
+            <button className="btn" onClick={save}>Speichern</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Modal({ children, onClose, title }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
+      <div className="card modal-content" style={{ width: 460, maxHeight: "80vh", overflowY: "auto", background: "var(--surface)" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <b style={{ fontSize: 15 }}>{title}</b>
+          <button className="iconbtn" onClick={onClose}><X size={16} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Tasks({ tasks, setTasks, subjects, subjectById }) {
+  const [showForm, setShowForm] = useState(false);
+  const empty = { title: "", description: "", subjectId: "", due: todayISO(), priority: "normal", status: "offen" };
+  const [form, setForm] = useState(empty);
+  const [filter, setFilter] = useState("alle");
+
+  const add = () => { if (!form.title.trim()) return; setTasks((t) => [...t, { ...form, id: uid(), subtasks: [] }]); setForm(empty); setShowForm(false); };
+  const cycle = (t) => {
+    const order = ["offen", "in Bearbeitung", "erledigt"];
+    const next = order[(order.indexOf(t.status) + 1) % order.length];
+    setTasks((ts) => ts.map((x) => x.id === t.id ? { ...x, status: next } : x));
+  };
+  const remove = (id) => setTasks((t) => t.filter((x) => x.id !== id));
+
+  const prioColor = { niedrig: "var(--text-muted)", normal: "var(--primary)", hoch: "var(--warning)", dringend: "var(--danger)" };
+  const filtered = tasks.filter((t) => filter === "alle" ? true : t.status === filter).sort((a,b)=>a.due.localeCompare(b.due));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          {["alle","offen","in Bearbeitung","erledigt"].map((f) => (
+            <button key={f} className={"btn " + (filter===f?"":"secondary")} onClick={()=>setFilter(f)}>{f}</button>
+          ))}
+        </div>
+        <button className="btn" onClick={() => setShowForm(true)}><Plus size={14}/> Aufgabe</button>
+      </div>
+
+      <div className="card">
+        {filtered.map((t) => {
+          const s = subjectById(t.subjectId);
+          return (
+            <div className="rowline" key={t.id}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button className="iconbtn" onClick={() => cycle(t)}>
+                  {t.status === "erledigt" ? <CheckCircle2 size={17} color="var(--success)" /> : <Circle size={17} color={t.status==="in Bearbeitung" ? "var(--warning)" : "var(--text-muted)"} />}
+                </button>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, textDecoration: t.status === "erledigt" ? "line-through" : "none", color: t.status === "erledigt" ? "var(--text-muted)" : "var(--text)" }}>{t.title}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Fällig {fmtDate(t.due)} {s ? "· " + s.name : ""}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="pill" style={{ background: prioColor[t.priority] + "22", color: prioColor[t.priority] }}>{t.priority}</span>
+                <button className="iconbtn" onClick={() => remove(t.id)}><Trash2 size={14} /></button>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Keine Aufgaben in dieser Kategorie.</div>}
+      </div>
+
+      {showForm && (
+        <Modal onClose={() => setShowForm(false)} title="Neue Aufgabe">
+          <div className="grid2">
+            <div style={{gridColumn:"1 / -1"}}><label className="fl">Titel</label><input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} /></div>
+            <div style={{gridColumn:"1 / -1"}}><label className="fl">Beschreibung</label><textarea rows={2} value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} /></div>
+            <div><label className="fl">Fach</label>
+              <select value={form.subjectId} onChange={(e)=>setForm({...form,subjectId:e.target.value})}>
+                <option value="">Kein Fach</option>
+                {subjects.map((s)=> <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div><label className="fl">Fälligkeitsdatum</label><input type="date" value={form.due} onChange={(e)=>setForm({...form,due:e.target.value})} /></div>
+            <div><label className="fl">Priorität</label>
+              <select value={form.priority} onChange={(e)=>setForm({...form,priority:e.target.value})}>
+                <option value="niedrig">Niedrig</option><option value="normal">Normal</option><option value="hoch">Hoch</option><option value="dringend">Dringend</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <button className="btn" onClick={add}>Speichern</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Notes({ notes, setNotes, subjects, subjectById }) {
+  const [showForm, setShowForm] = useState(false);
+  const [query, setQuery] = useState("");
+  const empty = { title: "", content: "", subjectId: "" };
+  const [form, setForm] = useState(empty);
+
+  const add = () => { if (!form.title.trim()) return; setNotes((n) => [...n, { ...form, id: uid(), favorite: false, createdAt: todayISO() }]); setForm(empty); setShowForm(false); };
+  const remove = (id) => setNotes((n) => n.filter((x) => x.id !== id));
+  const toggleFav = (id) => setNotes((n) => n.map((x) => x.id === id ? { ...x, favorite: !x.favorite } : x));
+
+  const filtered = notes.filter((n) => (n.title + n.content).toLowerCase().includes(query.toLowerCase()))
+    .sort((a,b) => (b.favorite - a.favorite) || b.createdAt.localeCompare(a.createdAt));
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: 1, position: "relative" }}>
+          <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--text-muted)" }} />
+          <input style={{ paddingLeft: 30 }} placeholder="Notizen durchsuchen…" value={query} onChange={(e)=>setQuery(e.target.value)} />
+        </div>
+        <button className="btn" onClick={() => setShowForm(true)}><Plus size={14}/> Notiz</button>
+      </div>
+
+      <div className="grid3">
+        {filtered.map((n) => {
+          const s = subjectById(n.subjectId);
+          return (
+            <div className="card" key={n.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                <b style={{ fontSize: 13 }}>{n.title}</b>
+                <button className="iconbtn" onClick={() => toggleFav(n.id)}><Star size={14} fill={n.favorite ? "var(--warning)" : "none"} color={n.favorite ? "var(--warning)" : "var(--text-muted)"} /></button>
+              </div>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>{n.content}</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                {s ? <span className="pill" style={{ background: s.color + "22", color: s.color }}>{s.name}</span> : <span />}
+                <button className="iconbtn" onClick={() => remove(n.id)}><Trash2 size={13} /></button>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Keine Notizen gefunden.</div>}
+      </div>
+
+      {showForm && (
+        <Modal onClose={() => setShowForm(false)} title="Neue Notiz">
+          <label className="fl">Titel</label><input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} style={{ marginBottom: 10 }} />
+          <label className="fl">Fach</label>
+          <select value={form.subjectId} onChange={(e)=>setForm({...form,subjectId:e.target.value})} style={{ marginBottom: 10 }}>
+            <option value="">Kein Fach</option>
+            {subjects.map((s)=> <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <label className="fl">Inhalt</label><textarea rows={4} value={form.content} onChange={(e)=>setForm({...form,content:e.target.value})} />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <button className="btn" onClick={add}>Speichern</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Schedule({ schedule, setSchedule, subjects, subjectById }) {
+  const [showForm, setShowForm] = useState(false);
+  const empty = { subjectId: subjects[0]?.id || "", teacher: "", room: "", day: 0, start: "08:00", end: "08:45" };
+  const [form, setForm] = useState(empty);
+
+  const times = Array.from(new Set(schedule.map((s) => s.start))).sort();
+  const add = () => { setSchedule((s) => [...s, { ...form, id: uid() }]); setForm(empty); setShowForm(false); };
+  const remove = (id) => setSchedule((s) => s.filter((x) => x.id !== id));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+        <button className="btn" onClick={() => setShowForm(true)}><Plus size={14}/> Stunde</button>
+      </div>
+      <div className="card" style={{ overflowX: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "70px repeat(5,1fr)", gap: 6, minWidth: 640 }}>
+          <div />
+          {WEEKDAYS.slice(0,5).map((w) => <div key={w} style={{ textAlign: "center", fontWeight: 700, fontSize: 12, padding: 6 }}>{w}</div>)}
+          {times.map((time) => (
+            <React.Fragment key={time}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", paddingTop: 10 }}>{time}</div>
+              {[0,1,2,3,4].map((day) => {
+                const lesson = schedule.find((s) => s.day === day && s.start === time);
+                const s = lesson ? subjectById(lesson.subjectId) : null;
+                return (
+                  <div key={day} style={{ minHeight: 56, borderRadius: 8, background: s ? s.color + "22" : "var(--surface-alt)", padding: 6, position: "relative" }}>
+                    {lesson && (
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.name}</div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{lesson.room} · {lesson.teacher}</div>
+                        <button className="iconbtn" style={{ position: "absolute", top: 2, right: 2 }} onClick={() => remove(lesson.id)}><X size={11} /></button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {showForm && (
+        <Modal onClose={() => setShowForm(false)} title="Neue Unterrichtsstunde">
+          <div className="grid2">
+            <div><label className="fl">Fach</label>
+              <select value={form.subjectId} onChange={(e)=>setForm({...form,subjectId:e.target.value})}>
+                {subjects.map((s)=> <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div><label className="fl">Wochentag</label>
+              <select value={form.day} onChange={(e)=>setForm({...form,day:Number(e.target.value)})}>
+                {WEEKDAYS.slice(0,5).map((w,i)=> <option key={w} value={i}>{w}</option>)}
+              </select>
+            </div>
+            <div><label className="fl">Lehrer</label><input value={form.teacher} onChange={(e)=>setForm({...form,teacher:e.target.value})} /></div>
+            <div><label className="fl">Raum</label><input value={form.room} onChange={(e)=>setForm({...form,room:e.target.value})} /></div>
+            <div><label className="fl">Start</label><input type="time" value={form.start} onChange={(e)=>setForm({...form,start:e.target.value})} /></div>
+            <div><label className="fl">Ende</label><input type="time" value={form.end} onChange={(e)=>setForm({...form,end:e.target.value})} /></div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <button className="btn" onClick={add}>Speichern</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}

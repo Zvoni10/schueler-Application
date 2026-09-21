@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: schueler-app-backend
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+    # Hinweis: Auf dem kostenlosen Render-Plan hat der Dienst KEINE
+    # dauerhafte Festplatte. Die SQLite-Datei "school.db" kann bei einem
+    # Neustart/Redeploy des Dienstes verloren gehen. Für ein Schulprojekt
+    # meist unkritisch - für dauerhaft sichere Daten später ggf. einen
+    # bezahlten Plan mit "Persistent Disk" verwenden (in Render-Doku:
+    # "Disks").

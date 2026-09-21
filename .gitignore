@@ -1,0 +1,6 @@
+node_modules/
+server/public/
+client/dist/
+server/school.db
+server/school.db-*
+.DS_Store
