@@ -351,7 +351,7 @@ function AuthScreen({ dark, setDark, onLogin }) {
           </div>
         </div>
         <div style={{ textAlign: "center", marginTop: 14 }}>
-          <button className="navbtn" style={{ width: 40, height: 40 }} onClick={() => setDark((d) => !d)} title={dark ? tr(language,"light") : tr(language,"dark")}>
+          <button className="navbtn" style={{ width: 40, height: 40 }} onClick={() => setDark((d) => !d)} title={dark ? "Helles Design" : "Dunkles Design"}>
             {dark ? <Sun size={16}/> : <Moon size={16}/>}
           </button>
         </div>
@@ -645,7 +645,7 @@ function Sidebar({ language, tab, setTab, dark, setDark, mobileNav, setMobileNav
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button className="navitem" onClick={() => setDark((d) => !d)} title={dark ? tr(language,"light") : tr(language,"dark")}>{dark ? <Sun size={19}/> : <Moon size={19}/>}<span className="navlabel">{dark ? tr(language,"light") : tr(language,"dark")}</span></button>
+          <button className="navitem" onClick={() => setDark((d) => !d)} title={dark ? "Helles Design" : "Dunkles Design"}>{dark ? <Sun size={19}/> : <Moon size={19}/>}<span className="navlabel">{dark ? tr(language,"light") : tr(language,"dark")}</span></button>
         </div>
       </aside>
     </>
