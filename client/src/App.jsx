@@ -72,7 +72,10 @@ function seedData() {
     { id: uid(), subjectId: "en", teacher: "Hr. Klein", room: "112", day: 2, start: "08:00", end: "08:45" },
     { id: uid(), subjectId: "sport", teacher: "Hr. Fuchs", room: "Halle", day: 2, start: "09:50", end: "11:20" },
   ];
-  return { subjects, grades, events, tasks, notes, schedule, flashcards: [\n    { id: uid(), question: "Was ist die Mitternachtsformel?", answer: "x = (-b ± √(b² - 4ac)) / (2a)", subjectId: "math" },\n    { id: uid(), question: "Was bedeutet photosynthesis?", answer: "Fotosynthese: Pflanzen wandeln Lichtenergie in chemische Energie um.", subjectId: "" }\n  ] };
+  return { subjects, grades, events, tasks, notes, schedule, flashcards: [
+    { id: uid(), question: "Was ist die Mitternachtsformel?", answer: "x = (-b ± √(b² - 4ac)) / (2a)", subjectId: "math" },
+    { id: uid(), question: "Was bedeutet photosynthesis?", answer: "Fotosynthese: Pflanzen wandeln Lichtenergie in chemische Energie um.", subjectId: "" }
+  ] };
 }
 
 function Avg(nums) { if (!nums.length) return null; return nums.reduce((a,b)=>a+b,0)/nums.length; }
